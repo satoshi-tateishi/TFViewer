@@ -4,6 +4,7 @@ import { smoothFractionalOctave, rowsFromMeasurementJson } from '../trf-parser.j
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
 import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
 import { renderFrequencyResponseChart } from '../frequency-chart.js';
+import { formatUpdatedAt } from '../format.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
@@ -37,16 +38,6 @@ function splitByCoherence(rows, threshold) {
   }
 
   return segments;
-}
-
-function formatUpdatedAt(iso) {
-  const date = new Date(iso);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 }
 
 export function measurementList() {

@@ -1,5 +1,6 @@
 import { initAuthenticatedPage } from '../layout.js';
 import { importMeasurementFile } from '../measurements.js';
+import { formatUpdatedAt } from '../format.js';
 
 // Storage側のfile_size_limit（002_storage.sql）と合わせる。
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -45,7 +46,11 @@ export function uploadForm() {
             measurementName: result.measurementName,
             pointCount: result.pointCount,
             ok: true,
-            status: result.overwritten ? '上書き' : '新規'
+            status: result.overwritten ? '上書き' : '新規',
+            previousMeasurementName: result.previousMeasurementName,
+            previousUpdatedAt: result.previousUpdatedAt
+              ? formatUpdatedAt(result.previousUpdatedAt)
+              : null
           });
         } catch (error) {
           console.error(error);

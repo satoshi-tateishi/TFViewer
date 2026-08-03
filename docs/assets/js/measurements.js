@@ -60,6 +60,11 @@ async function removeTrfFile(path) {
 // 同じファイル名が既に存在する場合は上書きする。TRF/CSVいずれの形式も対応。
 // 過去データは保持しない方針のため、置き換えられた古い測定ファイルは
 // DB更新の成功を確認したうえでStorageから削除する。
+//
+// DB書き込み（update/insert）が失敗した場合のみ、今回アップロードした新ファイルを
+// Storageからロールバックする。DB書き込みが成功した後の「旧ファイル削除」は
+// 別工程として扱い、これが失敗しても新ファイルを消してしまわないようにする
+// （測定行が指す先のファイルを誤って消すとデータ参照が壊れるため）。
 export async function importMeasurementFile(file, uploadedBy) {
   const isCsv = file.name.toLowerCase().endsWith('.csv');
   const parsed = isCsv ? await parseCsvFile(file) : await parseTrfFile(file);
@@ -67,7 +72,7 @@ export async function importMeasurementFile(file, uploadedBy) {
 
   const { data: existing, error: lookupError } = await supabase
     .from('measurements')
-    .select('id, trf_path')
+    .select('id, trf_path, measurement_name, updated_at')
     .eq('file_name', file.name)
     .maybeSingle();
 
@@ -90,40 +95,37 @@ export async function importMeasurementFile(file, uploadedBy) {
         .eq('id', existing.id);
 
       if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('measurements')
+        .insert({
+          file_name: file.name,
+          measurement_name: parsed.measurementName,
+          trf_path: trfPath,
+          json_data: jsonData,
+          uploaded_by: uploadedBy,
+          sort_order: await nextSortOrder()
+        });
 
-      await removeTrfFile(existing.trf_path);
-
-      return {
-        fileName: file.name,
-        measurementName: parsed.measurementName,
-        pointCount: parsed.rows.length,
-        overwritten: true
-      };
+      if (error) throw error;
     }
-
-    const { error } = await supabase
-      .from('measurements')
-      .insert({
-        file_name: file.name,
-        measurement_name: parsed.measurementName,
-        trf_path: trfPath,
-        json_data: jsonData,
-        uploaded_by: uploadedBy,
-        sort_order: await nextSortOrder()
-      });
-
-    if (error) throw error;
-
-    return {
-      fileName: file.name,
-      measurementName: parsed.measurementName,
-      pointCount: parsed.rows.length,
-      overwritten: false
-    };
   } catch (error) {
     await removeTrfFile(trfPath);
     throw error;
   }
+
+  if (existing) {
+    await removeTrfFile(existing.trf_path);
+  }
+
+  return {
+    fileName: file.name,
+    measurementName: parsed.measurementName,
+    pointCount: parsed.rows.length,
+    overwritten: Boolean(existing),
+    previousMeasurementName: existing?.measurement_name,
+    previousUpdatedAt: existing?.updated_at
+  };
 }
 
 export async function deleteMeasurement(id, trfPath) {

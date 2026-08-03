@@ -2,3 +2,4 @@
 .DS_Store
 sample/
 .playwright-mcp/
+test-account.json

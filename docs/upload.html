@@ -45,6 +45,8 @@
             ></span>
           </div>
           <div class="text-xs text-gray-500 mt-1" x-show="result.ok" x-text="`${result.measurementName} / ${result.pointCount}点`"></div>
+          <div class="text-xs text-amber-600 mt-1" x-show="result.ok && result.status === '上書き'"
+               x-text="`上書き前: ${result.previousMeasurementName}（${result.previousUpdatedAt} 更新）`"></div>
           <div class="text-xs text-red-600 mt-1" x-show="!result.ok" x-text="result.message"></div>
         </div>
       </template>
