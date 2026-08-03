@@ -24,10 +24,11 @@ const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map(formatFrequencyLabel);
 const HOVER_TEMPLATE = '%{y:.1f} dB<extra></extra>';
 
 export function renderFrequencyResponseChart(elementId, traces, { showLegend = false } = {}) {
-  const tracesWithHover = traces.map((trace) => ({
-    hovertemplate: HOVER_TEMPLATE,
-    ...trace
-  }));
+  // hovertemplateが指定されているとPlotly側でhoverinfo:'skip'が無視されるため、
+  // 明示的にhoverを無効化したトレースにはhovertemplateを付けない。
+  const tracesWithHover = traces.map((trace) => (
+    trace.hoverinfo === 'skip' ? trace : { hovertemplate: HOVER_TEMPLATE, ...trace }
+  ));
 
   const layout = {
     margin: { t: 20, r: 10, l: 30, b: 40 },

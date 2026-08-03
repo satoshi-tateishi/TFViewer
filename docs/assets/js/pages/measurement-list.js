@@ -138,6 +138,9 @@ export function measurementList() {
         // コヒーレンス閾値未満の区間は、線を消さずopacityを下げて視覚的に示すだけにとどめる。
         const smoothed = smoothFractionalOctave(rows, this.fraction);
 
+        // 塗り分け用の線は見た目だけを担当し、hoverは無効にする。
+        // セグメントごとに別トレースなので、hoverを有効にしたままだと
+        // 近接するセグメント全部の値が同時にツールチップへ出てしまうため。
         splitByCoherence(smoothed, this.coherenceThreshold).forEach((segment, segmentIndex) => {
           traces.push({
             x: segment.points.map((row) => row.frequency),
@@ -148,8 +151,23 @@ export function measurementList() {
             legendgroup: measurement.file_name,
             showlegend: segmentIndex === 0,
             opacity: segment.isLowCoherence ? 0.25 : 1,
+            hoverinfo: 'skip',
             line: { width: 2, color }
           });
+        });
+
+        // hover専用の透明な全データトレース。1測定につき1本だけにすることで、
+        // カーソル位置に対して常に1つの値だけが表示されるようにする。
+        traces.push({
+          x: smoothed.map((row) => row.frequency),
+          y: smoothed.map((row) => row.smoothedMagnitude),
+          type: 'scatter',
+          mode: 'lines',
+          name: measurement.file_name,
+          legendgroup: measurement.file_name,
+          showlegend: false,
+          opacity: 0,
+          line: { width: 2, color }
         });
       });
 
