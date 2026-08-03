@@ -85,15 +85,15 @@
 
 `sample/GAS.js` のTRFパース・平滑化ロジックをブラウザJS(ES Modules)に移植する。
 
-- [ ] TRFファイルをArrayBuffer/Uint8Arrayとして読み込む処理
-- [ ] JACKREF!シグネチャ検証処理
-- [ ] 測定名取得処理（オフセット40, 44byte）
-- [ ] Frequency/Magnitude/Real/Imaginary/Coherenceのオフセット計算・DataView読み出し処理
-- [ ] Invalid Magnitude（1234.5678）除外処理
-- [ ] 周波数昇順チェック・不正データ検出処理
-- [ ] 1/6 oct（可変N）平滑化処理の移植
-- [ ] `{frequency:[], magnitude_raw:[], magnitude_smoothed:[]}` 形式のJSON生成処理
-- [ ] 解析エラー時のユーザー向けメッセージ設計
+- [x] TRFファイルをArrayBuffer/Uint8Arrayとして読み込む処理 → `docs/assets/js/trf-parser.js`
+- [x] JACKREF!シグネチャ検証処理
+- [x] 測定名取得処理（オフセット40, 44byte）
+- [x] Frequency/Magnitude/Real/Imaginary/Coherenceのオフセット計算・DataView読み出し処理
+- [x] Invalid Magnitude（1234.5678）除外処理
+- [x] 周波数昇順チェック・不正データ検出処理
+- [x] 1/N oct 平滑化処理の移植 → 1/1, 1/3, 1/6, 1/12, 1/24octから選択可能（`SMOOTHING_FRACTION_OPTIONS`）
+- [x] `{frequency:[], magnitude_raw:[], magnitude_smoothed:[]}` 形式のJSON生成処理 → `buildMeasurementJson()`
+- [x] 解析エラー時のユーザー向けメッセージ設計 → 例外メッセージをそのまま表示（`docs/trf-test.html`で確認可能）
 
 * * *
 
