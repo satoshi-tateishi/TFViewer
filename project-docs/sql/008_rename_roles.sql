@@ -3,21 +3,25 @@
 -- 権限の対応関係は変えず、名称のみ変更する
 -- （administrator→Admin, operator→Editor, stageman→Viewer）。
 --
--- 順序: 1) 既存データ更新 → 2) CHECK制約・デフォルト値の張り替え →
--- 3) storage.objectsポリシー → 4) measurementsポリシー、の順に行う。
+-- 順序: 1) CHECK制約を一旦外す → 2) 既存データ更新 →
+-- 3) 新CHECK制約・デフォルト値を張る → 4) storage.objectsポリシー →
+-- 5) measurementsポリシー、の順に行う。
+-- （旧制約が有効なうちにデータを新値へ更新すると弾かれるため、先に外す）
 
--- 1. 既存データの値を更新
+-- 1. CHECK制約を一旦外す
+alter table public.profiles drop constraint if exists profiles_role_check;
+
+-- 2. 既存データの値を更新
 update public.profiles set role = 'Admin' where role = 'administrator';
 update public.profiles set role = 'Editor' where role = 'operator';
 update public.profiles set role = 'Viewer' where role = 'stageman';
 
--- 2. CHECK制約とデフォルト値の張り替え
-alter table public.profiles drop constraint if exists profiles_role_check;
+-- 3. 新CHECK制約とデフォルト値を張る
 alter table public.profiles alter column role set default 'Viewer';
 alter table public.profiles add constraint profiles_role_check
   check (role in ('Admin', 'Editor', 'Viewer'));
 
--- 3. storage.objects ポリシー（trfバケット）
+-- 4. storage.objects ポリシー（trfバケット）
 drop policy if exists trf_insert on storage.objects;
 create policy trf_insert
   on storage.objects for insert
@@ -46,7 +50,7 @@ create policy trf_delete
     and public.current_user_role() in ('Admin', 'Editor')
   );
 
--- 4. measurements ポリシー
+-- 5. measurements ポリシー
 drop policy if exists measurements_insert on public.measurements;
 create policy measurements_insert
   on public.measurements for insert
