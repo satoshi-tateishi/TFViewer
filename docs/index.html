@@ -34,29 +34,9 @@
     </form>
   </main>
 
-  <script>
-    window.loginForm = function () {
-      return {
-        email: '',
-        password: '',
-        loading: false,
-        errorMessage: '',
-        async submit() {
-          this.loading = true;
-          this.errorMessage = '';
-          try {
-            const { loginWithPassword } = await import('./assets/js/auth.js');
-            await loginWithPassword(this.email, this.password);
-            window.location.href = './dashboard.html';
-          } catch (error) {
-            console.error(error);
-            this.errorMessage = 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
-          } finally {
-            this.loading = false;
-          }
-        }
-      };
-    };
+  <script type="module">
+    import { loginForm } from './assets/js/pages/login.js';
+    window.loginForm = loginForm;
   </script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
