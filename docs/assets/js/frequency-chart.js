@@ -23,13 +23,20 @@ function buildXMajorTickvals() {
   return values;
 }
 
-const X_MAJOR_TICKVALS = buildXMajorTickvals();
+// 主要目盛の間を補う追加の縦線。ラベルは付けず黒線のみ表示する
+// （既存目盛と間隔が狭く、ラベルを付けると重なるため）。
+const X_EXTRA_GRIDLINES = [500, 700, 900, 5000, 7000, 9000, 15000];
 
 function formatFrequencyLabel(hz) {
   return hz >= 1000 ? `${hz / 1000}k` : String(hz);
 }
 
-const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map(formatFrequencyLabel);
+const X_MAJOR_TICKVALS = [...buildXMajorTickvals(), ...X_EXTRA_GRIDLINES]
+  .filter((value, index, all) => all.indexOf(value) === index)
+  .sort((a, b) => a - b);
+
+const X_EXTRA_SET = new Set(X_EXTRA_GRIDLINES);
+const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map((hz) => (X_EXTRA_SET.has(hz) ? '' : formatFrequencyLabel(hz)));
 
 const HOVER_TEMPLATE = '%{y:.1f} dB<extra></extra>';
 
@@ -47,6 +54,7 @@ export function renderFrequencyResponseChart(elementId, traces, { showLegend = f
       tickmode: 'array',
       tickvals: X_MAJOR_TICKVALS,
       ticktext: X_MAJOR_TICKTEXT,
+      tickangle: -90,
       showgrid: true,
       gridcolor: GRID_COLOR_MAJOR,
       gridwidth: 1,
