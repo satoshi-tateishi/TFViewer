@@ -36,7 +36,7 @@
 
     <div id="measurement-list" class="space-y-2">
       <template x-for="(measurement, index) in measurements" :key="measurement.id">
-        <div class="relative bg-white rounded-lg shadow p-3 flex items-center gap-3">
+        <div class="relative bg-white rounded-lg shadow p-3 flex items-center gap-3" :data-id="measurement.id">
           <span class="absolute top-1 right-2 text-[10px] leading-none text-gray-400" x-text="formatUpdatedAt(measurement.updated_at)"></span>
           <div class="flex items-center gap-3 flex-1 min-w-0" :class="checked[measurement.id] ? '' : 'grayscale opacity-50'">
             <span x-show="canReorder" class="drag-handle shrink-0 text-gray-400 cursor-grab select-none px-1">⠿</span>

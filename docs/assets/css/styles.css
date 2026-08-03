@@ -6,7 +6,11 @@ body {
 }
 
 /* touch-action未指定だとiOS Safariがハンドルでのタッチをネイティブスクロールと
-   解釈し、SortableJSのドラッグ開始前にジェスチャーを奪ってしまう。 */
+   解釈し、SortableJSのドラッグ開始前にジェスチャーを奪ってしまう。
+   また-webkit-touch-calloutを外さないと、文字（⠿）の長押しでiOS標準の
+   選択メニュー（虫眼鏡）が割り込み、ドラッグとして認識されない。 */
 .drag-handle {
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
 }

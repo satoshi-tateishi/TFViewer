@@ -51,16 +51,24 @@ export function measurementList() {
       const container = document.getElementById('measurement-list');
       if (!container) return;
 
-      // SortableJSがDOMを並び替えた後、その並びをそのままAlpineの配列へ反映し、
+      // event.oldIndex/newIndexはiOS Safariのタッチドラッグでは実際のDOM順と
+      // ずれることがあるため信用せず、ドロップ後のDOMの実並び（data-id）を
+      // 正として並び替え結果を確定させる。
       // 全員共通の並び順としてDBへ保存する。
       // 凡例の順序はグラフのtrace配列順=この配列順で決まる。
       new Sortable(container, {
         animation: 150,
         handle: '.drag-handle',
-        onEnd: async (event) => {
-          if (event.oldIndex === event.newIndex) return;
-          const moved = this.measurements.splice(event.oldIndex, 1)[0];
-          this.measurements.splice(event.newIndex, 0, moved);
+        onEnd: async () => {
+          const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
+          const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
+          const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+          if (reordered.length !== this.measurements.length) return;
+
+          const changed = reordered.some((m, i) => m.id !== this.measurements[i].id);
+          if (!changed) return;
+
+          this.measurements = reordered;
           this.renderChart();
 
           try {

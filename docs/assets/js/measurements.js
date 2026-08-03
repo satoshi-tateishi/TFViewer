@@ -13,11 +13,13 @@ export async function listMeasurements() {
 
 // 一覧の並び替え結果を全員共通の並び順としてDBへ保存する。
 export async function updateMeasurementOrder(orderedIds) {
-  await Promise.all(
+  const results = await Promise.all(
     orderedIds.map((id, index) =>
       supabase.from('measurements').update({ sort_order: index }).eq('id', id)
     )
   );
+  const failed = results.find((r) => r.error);
+  if (failed) throw failed.error;
 }
 
 async function nextSortOrder() {
