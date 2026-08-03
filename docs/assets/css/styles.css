@@ -14,3 +14,14 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
 }
+
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+/* フォールバック用のクローン要素がpointer-eventsを持ったままだと、
+   iOS Safariで指の下にある要素（ドロップ先）の検出をクローン自身が
+   奪ってしまい、並び替えが確定しないことがある。 */
+.sortable-fallback {
+  pointer-events: none;
+}

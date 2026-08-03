@@ -62,7 +62,14 @@ export function measurementList() {
         animation: 150,
         handle: '.drag-handle',
         forceFallback: true,
-        fallbackTolerance: 3,
+        fallbackOnBody: true,
+        fallbackTolerance: 5,
+        delay: 200,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 4,
+        scroll: true,
+        scrollSensitivity: 60,
+        scrollSpeed: 10,
         onEnd: async () => {
           const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
           const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
