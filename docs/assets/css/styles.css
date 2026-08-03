@@ -1,0 +1,6 @@
+/* Tailwind CDN（Play CDN）で基本スタイルを賄う。
+   ここにはTailwindユーティリティで表現しづらい微調整のみ書く。 */
+
+body {
+  font-feature-settings: "palt";
+}

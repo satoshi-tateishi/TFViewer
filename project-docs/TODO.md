@@ -50,23 +50,23 @@
 
 ## Phase 2: フロントエンド基盤構築
 
-- [ ] `index.html` をエントリポイントとして作成
-- [ ] Tailwind CSS導入（CDN or ビルド、要件に応じて選択）
-- [ ] HTMX導入
-- [ ] Alpine.js導入
-- [ ] Plotly.js導入
-- [ ] Supabase JS SDK導入
-- [ ] 共通レイアウト（ヘッダー、ナビゲーション、認証ガード）の骨組み作成
-- [ ] ページ構成を決定（SPA的にAlpineでルーティングするか、複数HTMLファイルに分けるか）
+- [x] `index.html` をエントリポイントとして作成
+- [x] Tailwind CSS導入（CDN or ビルド、要件に応じて選択）→ CDN(Play CDN)を採用
+- [x] HTMX導入 → 共通ナビの読み込みに使用
+- [x] Alpine.js導入
+- [x] Plotly.js導入
+- [x] Supabase JS SDK導入 → jsDelivr ESM経由
+- [x] 共通レイアウト（ヘッダー、ナビゲーション、認証ガード）の骨組み作成
+- [x] ページ構成を決定 → 複数HTMLファイル（マルチページ）+ HTMXで共通ナビ読み込み
 
 * * *
 
 ## Phase 3: 認証機能
 
-- [ ] ログイン画面（メールアドレス・パスワード・ログインボタン）を実装
-- [ ] Supabase Authでのログイン処理実装
-- [ ] 未ログイン時のリダイレクト処理（各画面で認証ガード）
-- [ ] ログアウト機能実装
+- [x] ログイン画面（メールアドレス・パスワード・ログインボタン）を実装 → `docs/index.html`
+- [x] Supabase Authでのログイン処理実装 → `docs/assets/js/auth.js`
+- [x] 未ログイン時のリダイレクト処理（各画面で認証ガード） → `requireAuth()` / `layout.js`
+- [x] ログアウト機能実装 → ナビの「ログアウト」ボタン
 - [ ] ロール（Administrator/Operator/Stageman）に応じたUI出し分けの仕組みを実装
 
 * * *

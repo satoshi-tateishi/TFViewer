@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFViewer ダッシュボード</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@2"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+
+  <div id="nav-placeholder" hx-get="partials/nav.html" hx-trigger="load" hx-swap="innerHTML"></div>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <h1 class="text-2xl font-bold">ダッシュボード</h1>
+    <p class="text-gray-600">
+      Phase 2: フロントエンド基盤の骨組みです。
+      下のグラフが表示されればPlotly.jsの読み込みは成功しています。
+    </p>
+
+    <div id="smoke-test-chart" class="w-full bg-white rounded-lg shadow p-4" style="height: 320px;"></div>
+  </main>
+
+  <script type="module">
+    import { initAuthenticatedPage } from './assets/js/layout.js';
+
+    await initAuthenticatedPage();
+
+    Plotly.newPlot('smoke-test-chart', [{
+      x: [20, 100, 1000, 10000, 20000],
+      y: [0, 1, -1, 0.5, 0],
+      type: 'scatter',
+      mode: 'lines',
+      name: '動作確認用ダミーデータ'
+    }], {
+      title: 'Plotly動作確認',
+      xaxis: { title: 'Frequency [Hz]', type: 'log' },
+      yaxis: { title: 'Magnitude [dB]', range: [-18, 18] }
+    }, { responsive: true });
+  </script>
+</body>
+</html>
