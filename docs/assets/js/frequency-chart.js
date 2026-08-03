@@ -1,4 +1,4 @@
-const X_RANGE_HZ = [20, 20000];
+const X_RANGE_HZ = [40, 20000];
 
 const Y_RANGE_DB = [-15, 5];
 const Y_MAJOR_DTICK = 5;
