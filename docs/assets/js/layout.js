@@ -1,11 +1,5 @@
 import { requireAuth, logout, getCurrentProfile } from './auth.js';
 
-const ROLE_LABELS = {
-  administrator: '管理者',
-  operator: 'オペレーター',
-  stageman: 'ステージマン'
-};
-
 let latestSession = null;
 let latestProfile = null;
 
@@ -45,6 +39,5 @@ function renderNavUserInfo(session, profile) {
   if (!el || !session || !profile) return;
 
   const name = profile.display_name || session.user.email;
-  const roleLabel = ROLE_LABELS[profile.role] || profile.role;
-  el.textContent = `${name}（${roleLabel}）`;
+  el.textContent = `${name}（${profile.role}）`;
 }

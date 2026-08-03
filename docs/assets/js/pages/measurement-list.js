@@ -62,8 +62,8 @@ export function measurementList() {
     formatUpdatedAt,
     async init() {
       const result = await initAuthenticatedPage();
-      this.isAdmin = result?.profile?.role === 'administrator';
-      this.canReorder = ['administrator', 'operator'].includes(result?.profile?.role);
+      this.isAdmin = result?.profile?.role === 'Admin';
+      this.canReorder = ['Admin', 'Editor'].includes(result?.profile?.role);
 
       try {
         this.measurements = await listMeasurements();
