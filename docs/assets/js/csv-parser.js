@@ -9,15 +9,16 @@ export async function parseCsvFile(file) {
   for (const line of text.split(/\r\n|\r|\n/)) {
     if (!line.trim()) continue;
 
-    const [frequencyText, magnitudeText] = line.split(',');
+    const [frequencyText, magnitudeText, , coherenceText] = line.split(',');
     const frequency = Number(frequencyText);
     const magnitude = Number(magnitudeText);
+    const coherence = Number(coherenceText);
 
     if (!Number.isFinite(frequency) || !Number.isFinite(magnitude) || frequency <= 0) {
       continue;
     }
 
-    rows.push({ frequency, magnitude });
+    rows.push({ frequency, magnitude, coherence: Number.isFinite(coherence) ? coherence : undefined });
   }
 
   if (rows.length === 0) {

@@ -2,6 +2,7 @@ import { initAuthenticatedPage } from '../layout.js';
 import { listMeasurements, deleteMeasurement, updateMeasurementOrder } from '../measurements.js';
 import { smoothFractionalOctave, rowsFromMeasurementJson } from '../trf-parser.js';
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
+import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
 import { renderFrequencyResponseChart } from '../frequency-chart.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
@@ -25,6 +26,7 @@ export function measurementList() {
     measurements: [],
     checked: {},
     fraction: getSmoothingFraction(),
+    coherenceThreshold: getCoherenceThreshold(),
     formatUpdatedAt,
     async init() {
       const result = await initAuthenticatedPage();
@@ -63,6 +65,10 @@ export function measurementList() {
       setSmoothingFraction(this.fraction);
       this.renderChart();
     },
+    onCoherenceThresholdChange() {
+      setCoherenceThreshold(this.coherenceThreshold);
+      this.renderChart();
+    },
     toggle(id) {
       this.checked[id] = !this.checked[id];
       this.renderChart();
@@ -93,7 +99,9 @@ export function measurementList() {
         .map((measurement, index) => ({ measurement, color: this.colorForIndex(index) }))
         .filter(({ measurement }) => this.checked[measurement.id])
         .map(({ measurement, color }) => {
-          const rows = rowsFromMeasurementJson(measurement.json_data);
+          // coherenceを保持していない形式・データはフィルタ対象外（全点そのまま使う）。
+          const rows = rowsFromMeasurementJson(measurement.json_data)
+            .filter((row) => row.coherence === undefined || row.coherence >= this.coherenceThreshold);
           const smoothed = smoothFractionalOctave(rows, this.fraction);
 
           return {

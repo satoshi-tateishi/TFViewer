@@ -28,6 +28,21 @@
       </select>
     </div>
 
+    <div class="bg-white rounded-lg shadow p-4">
+      <label class="block text-xs font-medium mb-1">
+        コヒーレンス閾値（全体設定）: <span x-text="coherenceThreshold.toFixed(2)"></span>
+      </label>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        x-model.number="coherenceThreshold"
+        @change="onCoherenceThresholdChange"
+        class="w-full"
+      >
+    </div>
+
     <div id="compare-chart" class="w-full bg-white rounded-lg shadow p-2" style="height: 280px;"></div>
 
     <p x-show="loading" class="text-sm text-gray-500">読み込み中...</p>

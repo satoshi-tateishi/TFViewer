@@ -67,6 +67,7 @@ export async function parseTrfFile(file) {
   for (let i = 0; i < pointCount; i++) {
     const frequency = view.getFloat32(frequencyOffset + i * 4, true);
     const magnitude = view.getFloat64(magnitudeOffset + i * 8, true);
+    const coherence = view.getFloat64(coherenceOffset + i * 8, true);
 
     if (!Number.isFinite(frequency) || !Number.isFinite(magnitude)) {
       continue;
@@ -84,7 +85,7 @@ export async function parseTrfFile(file) {
       continue;
     }
 
-    rows.push({ frequency, magnitude });
+    rows.push({ frequency, magnitude, coherence: Number.isFinite(coherence) ? coherence : undefined });
   }
 
   if (rows.length === 0) {
@@ -165,18 +166,26 @@ export function smoothFractionalOctave(rows, fraction = DEFAULT_SMOOTHING_FRACTI
 }
 
 // 保存用JSON。平滑化は表示側でグローバル設定に応じて都度計算するため、
-// ここではraw値のみを保持する。
+// ここではraw値のみを保持する。コヒーレンスは全点で取得できた場合のみ保存する
+// （欠けている形式・データでは閾値フィルタを適用しないため）。
 export function buildRawMeasurementJson(rows) {
-  return {
+  const json = {
     frequency: rows.map((row) => row.frequency),
     magnitude_raw: rows.map((row) => row.magnitude)
   };
+
+  if (rows.every((row) => Number.isFinite(row.coherence))) {
+    json.coherence = rows.map((row) => row.coherence);
+  }
+
+  return json;
 }
 
 export function rowsFromMeasurementJson(jsonData) {
   return jsonData.frequency.map((frequency, index) => ({
     frequency,
-    magnitude: jsonData.magnitude_raw[index]
+    magnitude: jsonData.magnitude_raw[index],
+    coherence: jsonData.coherence ? jsonData.coherence[index] : undefined
   }));
 }
 
