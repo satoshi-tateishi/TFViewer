@@ -1,21 +1,11 @@
 import { supabase } from './supabase-client.js';
+import { parseTrfFile, buildRawMeasurementJson } from './trf-parser.js';
 
-export async function listActiveMicrophoneHeadsForSelect() {
+export async function listMeasurements() {
   const { data, error } = await supabase
-    .from('microphone_heads')
-    .select('id, management_number, manufacturer, model')
-    .is('deleted_at', null)
-    .order('management_number', { ascending: true });
-
-  if (error) throw error;
-  return data;
-}
-
-export async function listMeasurementTypes() {
-  const { data, error } = await supabase
-    .from('measurement_types')
-    .select('id, name')
-    .order('name', { ascending: true });
+    .from('measurements')
+    .select('id, file_name, measurement_name, trf_path, json_data, updated_at')
+    .order('file_name', { ascending: true });
 
   if (error) throw error;
   return data;
@@ -43,43 +33,73 @@ async function removeTrfFile(path) {
   await supabase.storage.from('trf').remove([path]);
 }
 
-// Storageへのアップロード後にDB登録が失敗した場合、
-// アップロード済みファイルを削除してロールバックする。
-export async function registerMeasurement({
-  microphoneHeadId,
-  measurementTypeId,
-  measurementName,
-  measuredAt,
-  measuredBy,
-  note,
-  smoothingFraction,
-  jsonData,
-  file
-}) {
+// 同じファイル名が既に存在する場合は上書きする。
+// 過去データは保持しない方針のため、置き換えられた古いTRFファイルは
+// DB更新の成功を確認したうえでStorageから削除する。
+export async function importMeasurementFile(file, uploadedBy) {
+  const parsed = await parseTrfFile(file);
+  const jsonData = buildRawMeasurementJson(parsed.rows);
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('measurements')
+    .select('id, trf_path')
+    .eq('file_name', file.name)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+
   const trfPath = await uploadTrfFile(file);
 
   try {
-    const { data, error } = await supabase
+    if (existing) {
+      const { error } = await supabase
+        .from('measurements')
+        .update({
+          measurement_name: parsed.measurementName,
+          trf_path: trfPath,
+          json_data: jsonData,
+          uploaded_by: uploadedBy
+        })
+        .eq('id', existing.id);
+
+      if (error) throw error;
+
+      await removeTrfFile(existing.trf_path);
+
+      return {
+        fileName: file.name,
+        measurementName: parsed.measurementName,
+        pointCount: parsed.rows.length,
+        overwritten: true
+      };
+    }
+
+    const { error } = await supabase
       .from('measurements')
       .insert({
-        microphone_head_id: microphoneHeadId,
-        measurement_type_id: measurementTypeId,
-        measurement_name: measurementName,
-        measured_at: measuredAt,
-        measured_by: measuredBy,
+        file_name: file.name,
+        measurement_name: parsed.measurementName,
         trf_path: trfPath,
-        original_file_name: file.name,
-        smoothing_fraction: smoothingFraction,
         json_data: jsonData,
-        note
-      })
-      .select()
-      .single();
+        uploaded_by: uploadedBy
+      });
 
     if (error) throw error;
-    return data;
+
+    return {
+      fileName: file.name,
+      measurementName: parsed.measurementName,
+      pointCount: parsed.rows.length,
+      overwritten: false
+    };
   } catch (error) {
     await removeTrfFile(trfPath);
     throw error;
   }
+}
+
+export async function deleteMeasurement(id, trfPath) {
+  const { error } = await supabase.from('measurements').delete().eq('id', id);
+  if (error) throw error;
+  await removeTrfFile(trfPath);
 }

@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TFViewer 測定アップロード</title>
+<title>TFViewer アップロード</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/htmx.org@2"></script>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900">
@@ -14,99 +13,43 @@
   <div id="nav-placeholder" hx-get="partials/nav.html" hx-trigger="load" hx-swap="innerHTML"></div>
 
   <main class="max-w-md mx-auto px-4 py-6 space-y-4" x-data="uploadForm()" x-init="init()">
-    <h1 class="text-xl font-bold">測定アップロード</h1>
+    <h1 class="text-xl font-bold">アップロード</h1>
+    <p class="text-sm text-gray-600">
+      TRFファイルをドラッグ&ドロップ、またはタップして選択してください。
+      同じファイル名の測定は自動的に上書きされます。
+    </p>
 
-    <p x-show="loadingOptions" class="text-sm text-gray-500">読み込み中...</p>
+    <div
+      class="border-2 border-dashed rounded-lg p-8 text-center text-sm text-gray-500 bg-white"
+      :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="onDrop"
+      @click="$refs.fileInput.click()"
+    >
+      <p x-show="!processing">タップしてファイルを選択、またはドラッグ&ドロップ</p>
+      <p x-show="processing">取り込み中...</p>
+      <input type="file" accept=".trf" multiple x-ref="fileInput" class="hidden" @change="onFileSelected">
+    </div>
 
-    <template x-if="!loadingOptions">
-      <div class="space-y-4">
-        <div class="bg-white rounded-lg shadow p-4 space-y-3">
-          <div>
-            <label class="block text-xs font-medium mb-1">対象マイク *</label>
-            <select x-model="form.microphoneHeadId" class="w-full border rounded px-2 py-2 text-sm">
-              <option value="">選択してください</option>
-              <template x-for="head in microphoneHeads" :key="head.id">
-                <option :value="head.id" x-text="`${head.management_number} (${head.manufacturer ?? ''} ${head.model ?? ''})`"></option>
-              </template>
-            </select>
+    <div class="space-y-2" x-show="results.length > 0">
+      <template x-for="(result, index) in results" :key="index">
+        <div class="bg-white rounded-lg shadow p-3 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="font-medium truncate" x-text="result.fileName"></span>
+            <span
+              class="text-xs rounded px-2 py-1 shrink-0"
+              :class="result.ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+              x-text="result.status"
+            ></span>
           </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">測定対象種類 *</label>
-            <select x-model="form.measurementTypeId" class="w-full border rounded px-2 py-2 text-sm">
-              <option value="">選択してください</option>
-              <template x-for="type in measurementTypes" :key="type.id">
-                <option :value="type.id" x-text="type.name"></option>
-              </template>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">測定日 *</label>
-            <input type="date" x-model="form.measuredAt" class="w-full border rounded px-2 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">備考</label>
-            <textarea x-model="form.note" rows="3" class="w-full border rounded px-2 py-2 text-sm"></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-medium mb-1">平滑化</label>
-            <select x-model.number="form.smoothingFraction" @change="resmooth" class="w-full border rounded px-2 py-2 text-sm">
-              <template x-for="option in fractionOptions" :key="option">
-                <option :value="option" x-text="`1/${option} oct`"></option>
-              </template>
-            </select>
-          </div>
+          <div class="text-xs text-gray-500 mt-1" x-show="result.ok" x-text="`${result.measurementName} / ${result.pointCount}点`"></div>
+          <div class="text-xs text-red-600 mt-1" x-show="!result.ok" x-text="result.message"></div>
         </div>
+      </template>
+    </div>
 
-        <div>
-          <label class="block text-xs font-medium mb-1">TRFファイル *</label>
-          <div
-            class="border-2 border-dashed rounded-lg p-6 text-center text-sm text-gray-500 bg-white"
-            :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onDrop"
-            @click="$refs.fileInput.click()"
-          >
-            <template x-if="!parsedFileName">
-              <p>タップしてファイルを選択、またはドラッグ&ドロップ</p>
-            </template>
-            <template x-if="parsedFileName">
-              <p class="text-gray-800" x-text="parsedFileName"></p>
-            </template>
-            <input type="file" accept=".trf" x-ref="fileInput" class="hidden" @change="onFileSelected">
-          </div>
-        </div>
-
-        <p x-show="parsing" class="text-sm text-gray-500">解析中...</p>
-        <p x-show="errorMessage" x-text="errorMessage" class="text-sm text-red-600"></p>
-
-        <template x-if="parsedResult">
-          <div class="space-y-3">
-            <div class="bg-white rounded-lg shadow p-4 space-y-3">
-              <div>
-                <label class="block text-xs font-medium mb-1">測定名（TRFファイルから取得、編集可）</label>
-                <input x-model="form.measurementName" class="w-full border rounded px-2 py-2 text-sm">
-              </div>
-              <p class="text-xs text-gray-500">
-                有効点数: <span x-text="parsedResult.rows.length"></span> /
-                格納点数: <span x-text="parsedResult.storedPointCount"></span>
-              </p>
-            </div>
-            <div id="preview-chart" class="w-full bg-white rounded-lg shadow p-2" style="height: 280px;"></div>
-          </div>
-        </template>
-
-        <button
-          type="button"
-          @click="register"
-          :disabled="!canRegister || registering"
-          class="w-full bg-blue-600 text-white rounded py-2 text-sm font-medium disabled:opacity-50"
-        >
-          <span x-show="!registering">登録</span>
-          <span x-show="registering">登録中...</span>
-        </button>
-      </div>
-    </template>
+    <a href="./measurements.html" class="block text-center text-blue-600 hover:underline text-sm">一覧を見る</a>
   </main>
 
   <script type="module">

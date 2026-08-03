@@ -7,7 +7,6 @@
 // - Magnitude/Real/Imaginary/Coherence: Float64 Little Endian
 
 export const DEFAULT_SMOOTHING_FRACTION = 6;
-export const SMOOTHING_FRACTION_OPTIONS = [1, 3, 6, 12, 24];
 
 const SIGNATURE = 'JACKREF!';
 const SIGNATURE_OFFSET = 0;
@@ -165,12 +164,20 @@ export function smoothFractionalOctave(rows, fraction = DEFAULT_SMOOTHING_FRACTI
   return smoothedRows;
 }
 
-export function buildMeasurementJson(smoothedRows) {
+// 保存用JSON。平滑化は表示側でグローバル設定に応じて都度計算するため、
+// ここではraw値のみを保持する。
+export function buildRawMeasurementJson(rows) {
   return {
-    frequency: smoothedRows.map((row) => row.frequency),
-    magnitude_raw: smoothedRows.map((row) => row.rawMagnitude),
-    magnitude_smoothed: smoothedRows.map((row) => row.smoothedMagnitude)
+    frequency: rows.map((row) => row.frequency),
+    magnitude_raw: rows.map((row) => row.magnitude)
   };
+}
+
+export function rowsFromMeasurementJson(jsonData) {
+  return jsonData.frequency.map((frequency, index) => ({
+    frequency,
+    magnitude: jsonData.magnitude_raw[index]
+  }));
 }
 
 function readAscii(bytes, offset, maxLength) {

@@ -1,10 +1,20 @@
 # TFViewer 実装TODO（GitHub Pages公開まで）
 
-`docs/SPECIFICATION.md` に基づく実装タスクをPhase分割したもの。
+`project-docs/SPECIFICATION.md` に基づく実装タスクをPhase分割したもの。
 サーバーレス構成（GitHub Pages + Supabase）を前提とする。
 
-仕様書末尾の提案（`Measurement Type` を導入したDB拡張）を採用し、
-初期実装から `microphone_heads` / `measurement_types` / `measurements` の3テーブル構成とする。
+## 2026-08-03 設計変更
+
+実装途中で方針を以下のように変更した（詳細は `project-docs/sql/004_reset_flat_measurements.sql` 参照）。
+
+- マイクヘッド管理（登録番号・メーカー・型番などの資産管理）は廃止。
+- `microphone_heads` / `measurement_types` テーブルを廃止し、`measurements` 単一テーブルのフラット構成にする。
+- 測定の識別・上書き判定は **アップロードした元ファイル名** で行う。同名ファイルの再アップロードは既存データを上書きし、過去データ・履歴は保持しない（現在の特性のみ管理する）。
+- インポート画面は対象マイク・測定タイプ・測定日・備考・平滑化の入力をすべて廃止し、TRFファイルのドラッグ&ドロップのみで自動取込する。
+- 平滑化（1/N oct）はインポート時ではなく表示時にクライアント側で計算する。マイク間で設定がばらつかないよう、平滑化はアプリ全体でグローバルな1つの設定（`localStorage`）として持つ。
+- マイク一覧・マイク詳細・比較画面は「測定一覧」画面（チェックボックス一覧 + 重ね書きグラフ）に統合した。
+
+以下のPhase構成はこの変更を反映して改訂済み。
 
 * * *
 
@@ -20,44 +30,42 @@
 
 ## Phase 1: Supabase設計（DB / Storage / Auth）
 
-### テーブル設計
+### テーブル設計（2026-08-03 改訂）
 
-- [ ] `microphone_heads` テーブル作成
-    - `id, management_number, manufacturer, model, serial_number, status, note, created_at, updated_at, deleted_at`（論理削除用に`deleted_at`を追加）
-- [ ] `measurement_types` テーブル新設
-    - `id, name, description, created_at`
-    - 初期データ投入: Head Frequency Response / Capsule Only / Body + Head / Wireless System / Speaker Measurement / Room Measurement
-- [ ] `measurements` テーブル作成
-    - `id, microphone_head_id(FK), measurement_type_id(FK), measurement_name, measured_at, measured_by, trf_path, original_file_name, smoothing_fraction, json_data(jsonb), note, created_at`
-- [ ] 権限用ロールの扱いを決定（Supabase AuthのユーザーメタデータでAdministrator/Operator/Stagemanを保持）
+- [x] `profiles` テーブル（ロール管理: administrator/operator/stageman、`auth.users`作成時に自動生成）→ `001_initial_schema.sql`
+- [x] `measurements` テーブル（フラット構成）→ `004_reset_flat_measurements.sql`
+    - `id, file_name(unique), measurement_name, trf_path, json_data(jsonb: frequency/magnitude_rawのみ), uploaded_by, created_at, updated_at`
+- [x] ~~`microphone_heads` / `measurement_types`~~ → 廃止（`004_reset_flat_measurements.sql`で削除）
 
 ### Storage
 
-- [ ] `trf` バケットを作成（Private）
-- [ ] 保存パス規則を実装前提として明文化: `trf/YYYY/MM/{uuid}.trf`
-- [ ] アップロード可能拡張子を `.trf` のみに制限する設定
-- [ ] ファイルサイズ上限を設定
+- [x] `trf` バケットを作成（非公開）→ `002_storage.sql`
+- [x] 保存パス規則: `trf/YYYY/MM/{uuid}.trf`
+- [x] アップロード可能拡張子を `.trf` のみに制限（Storage RLSで拡張子チェック）
+- [x] ファイルサイズ上限を設定（10MB）
 
 ### Auth / RLS
 
-- [ ] Supabase Authでユーザーを事前登録（管理者が手動登録、サインアップ画面は作らない）
-- [ ] Administrator / Operator / Stageman のロールをuser_metadataまたは専用テーブルで管理
-- [ ] `microphone_heads` / `measurement_types` / `measurements` にRLSを有効化
-- [ ] 参照は認証済み全ロール許可、作成・更新はAdministrator/Operatorのみ、削除（論理削除）はAdministratorのみ、のポリシーを作成
-- [ ] Storageバケットにも認証済みユーザーのみアクセス可能なポリシーを設定
+- [x] Supabase Authでユーザーを事前登録（管理者が手動登録、サインアップ画面は作らない）
+- [x] Administrator / Operator / Stageman のロールを`profiles`テーブルで管理
+- [x] `measurements` にRLSを有効化
+- [x] 参照は認証済み全ロール許可、作成・更新はAdministrator/Operatorのみ、削除はAdministratorのみ
+- [x] Storageバケットにも認証済みユーザーのみアクセス可能なポリシーを設定
 
 * * *
 
 ## Phase 2: フロントエンド基盤構築
 
 - [x] `index.html` をエントリポイントとして作成
-- [x] Tailwind CSS導入（CDN or ビルド、要件に応じて選択）→ CDN(Play CDN)を採用
+- [x] Tailwind CSS導入（CDN）
 - [x] HTMX導入 → 共通ナビの読み込みに使用
 - [x] Alpine.js導入
 - [x] Plotly.js導入
 - [x] Supabase JS SDK導入 → jsDelivr ESM経由
 - [x] 共通レイアウト（ヘッダー、ナビゲーション、認証ガード）の骨組み作成
 - [x] ページ構成を決定 → 複数HTMLファイル（マルチページ）+ HTMXで共通ナビ読み込み
+- [x] 各ページのAlpineロジックは`docs/assets/js/pages/*.js`に分離し、HTML側はブートストラップのみに保つ方針を採用
+- [x] UIはモバイル専用（PC対応は考慮しない）方針を採用
 
 * * *
 
@@ -67,21 +75,11 @@
 - [x] Supabase Authでのログイン処理実装 → `docs/assets/js/auth.js`
 - [x] 未ログイン時のリダイレクト処理（各画面で認証ガード） → `requireAuth()` / `layout.js`
 - [x] ログアウト機能実装 → ナビの「ログアウト」ボタン
-- [ ] ロール（Administrator/Operator/Stageman）に応じたUI出し分けの仕組みを実装
+- [ ] ロール（Administrator/Operator/Stageman）に応じたUI出し分けの仕組みを実装 → 測定一覧の削除ボタンでは対応済み。他画面は都度対応
 
 * * *
 
-## Phase 4: マイクヘッド管理機能
-
-- [x] マイク一覧画面（管理番号・メーカー・型番・状態・最終測定日・測定回数を表示） → `docs/microphones.html`（モバイル専用カードUI）
-- [x] 一覧の検索機能（管理番号・メーカー・型番・状態） → 測定者・期間はPhase 8/13で比較・履歴検索として別途対応予定
-- [x] マイク詳細画面（管理番号・メーカー・型番・シリアル・状態・備考 + 測定履歴一覧） → `docs/microphone-detail.html`
-- [x] マイク管理（追加・編集）画面（Administratorのみ） → `docs/microphone-edit.html`
-- [x] マイク論理削除機能（Administratorのみ、`deleted_at`更新） → 詳細画面の「削除」ボタン
-
-* * *
-
-## Phase 5: TRF解析エンジン（ブラウザ内処理）
+## Phase 4: TRF解析エンジン（ブラウザ内処理）
 
 `sample/GAS.js` のTRFパース・平滑化ロジックをブラウザJS(ES Modules)に移植する。
 
@@ -92,93 +90,85 @@
 - [x] Invalid Magnitude（1234.5678）除外処理
 - [x] 周波数昇順チェック・不正データ検出処理
 - [x] 1/N oct 平滑化処理の移植 → 1/1, 1/3, 1/6, 1/12, 1/24octから選択可能（`SMOOTHING_FRACTION_OPTIONS`）
-- [x] `{frequency:[], magnitude_raw:[], magnitude_smoothed:[]}` 形式のJSON生成処理 → `buildMeasurementJson()`
+- [x] 保存用JSON生成処理 → `buildRawMeasurementJson()`（raw値のみ。平滑化値は表示時に都度計算）
 - [x] 解析エラー時のユーザー向けメッセージ設計 → 例外メッセージをそのまま表示（`docs/trf-test.html`で確認可能）
 
 * * *
 
-## Phase 6: 測定アップロード機能
+## Phase 5: アップロード機能（ドラッグ&ドロップ自動取込）
 
-- [x] アップロード画面UI（対象マイク・測定タイプ・測定日・備考・TRFファイル） → `docs/upload.html`
-- [x] ドラッグ&ドロップ対応
-- [x] アップロード後の解析→smoothing→プレビューのフロー実装（Phase 5のロジックを利用）
-- [x] プレビュー画面でPlotlyグラフ表示（登録前確認）
-- [x] 登録処理: TRFファイルをStorageへUUID名でアップロード → `docs/assets/js/measurements.js`
-- [x] 登録処理: `measurements` へメタデータ・元ファイル名・json_dataを保存
-- [x] アップロード失敗時のロールバック/エラーハンドリング（Storage登録済みでDB登録失敗した場合の考慮） → 登録失敗時にアップロード済みファイルを削除
-
-* * *
-
-## Phase 7: 単体グラフ表示
-
-- [ ] Plotly.jsでの周波数特性グラフコンポーネント作成
-- [ ] 横軸: Logスケール・20Hz〜20kHz（設定変更可能）
-- [ ] 縦軸: -18〜18dB（設定変更可能）
-- [ ] 線のみ表示（ポイントなし）
-- [ ] ズーム・パン対応
-- [ ] PNG保存機能
-- [ ] 凡例クリックによる表示切替
+- [x] アップロード画面UI → `docs/upload.html`（TRFファイルのDnD/タップ選択のみ。フォーム入力なし）
+- [x] ドラッグ&ドロップ対応（複数ファイル同時対応）
+- [x] ドロップと同時に解析→Storageアップロード→DB登録まで自動実行
+- [x] ファイル名重複時は既存データを上書き（古いTRFファイルはStorageから削除し、過去データは残さない）
+- [x] 取込結果一覧表示（新規/上書き/エラー）
+- [x] 失敗時のロールバック（DB更新失敗時はアップロード済みファイルを削除。上書き時は新データ保存成功後に旧ファイルを削除）
 
 * * *
 
-## Phase 8: 比較画面
+## Phase 6: 測定一覧・比較画面
 
-- [ ] 左ペイン: 測定一覧チェックボックス表示
-- [ ] 右ペイン: Plotlyグラフ（Phase 7のコンポーネント再利用）
-- [ ] チェック変更時の即時再描画（Alpine.jsのreactivityで実装）
-- [ ] マイク詳細の測定履歴クリックで比較対象へ追加する導線を実装
+マイク一覧・マイク詳細・単体グラフ・比較画面を1画面に統合。
 
-* * *
-
-## Phase 9: ダッシュボード
-
-- [ ] 登録マイク数・登録測定数の集計表示
-- [ ] 最近の測定一覧表示
-- [ ] アップロード・比較開始へのショートカット導線
+- [x] 測定一覧のチェックボックス表示（デフォルト全選択）→ `docs/measurements.html`
+- [x] Plotly.jsでの周波数特性グラフ（横軸Log 20Hz〜20kHz、縦軸-18〜18dB、線のみ、ズーム/パン/PNG保存/凡例クリック切替はPlotly標準機能）
+- [x] チェック変更時の即時再描画
+- [x] 平滑化のグローバル設定UI（デフォルト1/6oct、`localStorage`に保存）
+- [x] Administratorのみ測定の削除が可能（DB行 + Storageファイルを削除）
+- [ ] 軸範囲（周波数/dBレンジ）のユーザー設定変更UI
 
 * * *
 
-## Phase 10: セキュリティ強化
+## Phase 7: ダッシュボード
+
+- [ ] 登録測定数の集計表示
+- [ ] 最近更新された測定一覧表示
+- [ ] アップロード・一覧へのショートカット導線
+
+* * *
+
+## Phase 8: セキュリティ強化
 
 - [ ] HTTPS配信の確認（GitHub Pagesは標準でHTTPS）
 - [ ] UUIDファイル名の徹底確認
 - [ ] ファイルサイズ制限のクライアント側チェック追加（Storage側制限と二重化）
 - [ ] `.trf`拡張子以外を弾くクライアント側バリデーション
-- [ ] JACKREFシグネチャ確認をアップロード時の必須チェックとして組み込み
-- [ ] 各フォーム入力値バリデーション（必須項目・文字数・型）
+- [ ] JACKREFシグネチャ確認をアップロード時の必須チェックとして組み込み（実装済みのtrf-parser.jsで対応済み、再確認のみ）
 - [ ] RLSポリシーの動作確認（各ロールで許可/拒否が意図通りか）
 
 * * *
 
-## Phase 11: レスポンシブ・UI仕上げ
+## Phase 9: UI仕上げ（モバイル最適化）
 
-- [ ] PC優先レイアウトの調整
-- [ ] スマホでの閲覧確認（一覧・詳細・グラフの最低限の閲覧性確保）
-- [ ] 主要ブラウザでの表示確認
+- [ ] 主要モバイルブラウザ（iOS Safari / Android Chrome）での表示確認
+- [ ] タップ操作・DnDのユーザビリティ確認
+- [ ] 測定件数が多い場合の一覧・グラフのパフォーマンス確認
 
 * * *
 
-## Phase 12: GitHub Pages公開設定
+## Phase 10: GitHub Pages公開設定
 
-- [ ] GitHub Pages公開ブランチ/ディレクトリを決定（例: `main`ブランチの`/docs`または`gh-pages`ブランチ）
+- [ ] GitHub Pages公開ブランチ/ディレクトリを決定（`main`ブランチの`/docs`を採用済み）
 - [ ] リポジトリ設定 > Pages で公開ソースを設定
 - [ ] Supabase側の認証コールバックURL・許可オリジンにGitHub PagesのURLを登録
-- [ ] カスタムドメインを使う場合はCNAME設定（必要な場合のみ）
-- [ ] 公開後の動作確認（ログイン〜アップロード〜比較まで一通り）
+- [ ] 公開後の動作確認（ログイン〜アップロード〜一覧・比較まで一通り）
 
 * * *
 
-## Phase 13: テスト・QA
+## Phase 11: テスト・QA
 
 - [ ] 実際の`.trf`ファイルを用いたインポート結果の検証（`sample/GAS.js`の結果と突き合わせ）
 - [ ] 不正ファイル（非TRF、破損ファイル）投入時のエラーハンドリング確認
+- [ ] 同名ファイル再アップロード時の上書き・旧ファイル削除の確認
 - [ ] ロールごとのアクセス制御確認（Administrator/Operator/Stageman）
-- [ ] 検索機能の網羅的な動作確認
-- [ ] 比較画面での複数測定同時表示のパフォーマンス確認
+- [ ] 測定一覧での複数選択・グローバル平滑化切替のパフォーマンス確認
 
 * * *
 
-## Phase 14: 公開後バックログ（今後追加予定・仕様書16章より）
+## Phase 12: 公開後バックログ（今後追加予定・仕様書16章より）
+
+過去データを保持しない方針としたため、履歴系の項目（修理履歴・使用公演履歴・校正履歴等）は
+再度「履歴を残す」設計に戻すことが前提になる。着手時に改めて要否を確認する。
 
 - [ ] FFT設定保存
 - [ ] Coherence表示
@@ -189,7 +179,7 @@
 - [ ] CSVエクスポート
 - [ ] PDFレポート
 - [ ] マイクヘッドQRコード
-- [ ] 修理履歴
-- [ ] 使用公演履歴
-- [ ] 校正履歴
+- [ ] 修理履歴（要: 履歴保持の再設計）
+- [ ] 使用公演履歴（要: 履歴保持の再設計）
+- [ ] 校正履歴（要: 履歴保持の再設計）
 - [ ] メーカー別統計

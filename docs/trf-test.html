@@ -24,9 +24,11 @@
       <div>
         <label class="block text-xs font-medium mb-1">平滑化</label>
         <select x-model.number="fraction" @change="resmooth" class="w-full border rounded px-2 py-2 text-sm">
-          <template x-for="option in fractionOptions" :key="option">
-            <option :value="option" x-text="`1/${option} oct`"></option>
-          </template>
+          <option value="1">1/1 oct</option>
+          <option value="3">1/3 oct</option>
+          <option value="6">1/6 oct</option>
+          <option value="12">1/12 oct</option>
+          <option value="24">1/24 oct</option>
         </select>
       </div>
     </div>
@@ -43,7 +45,7 @@
           <div><span class="text-gray-500">有効点数: </span><span x-text="result.rows.length"></span></div>
         </div>
 
-        <div id="trf-chart" class="w-full bg-white rounded-lg shadow p-2" style="height: 320px;"></div>
+        <div id="trf-chart" class="w-full bg-white rounded-lg shadow p-2" style="height: 280px;"></div>
       </div>
     </template>
   </main>

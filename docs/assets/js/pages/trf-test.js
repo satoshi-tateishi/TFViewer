@@ -1,10 +1,10 @@
 import { initAuthenticatedPage } from '../layout.js';
-import { parseTrfFile, smoothFractionalOctave, DEFAULT_SMOOTHING_FRACTION, SMOOTHING_FRACTION_OPTIONS } from '../trf-parser.js';
+import { parseTrfFile, smoothFractionalOctave, DEFAULT_SMOOTHING_FRACTION } from '../trf-parser.js';
+import { renderFrequencyResponseChart } from '../frequency-chart.js';
 
 export function trfTest() {
   return {
     fraction: DEFAULT_SMOOTHING_FRACTION,
-    fractionOptions: SMOOTHING_FRACTION_OPTIONS,
     result: null,
     smoothedRows: [],
     loading: false,
@@ -35,7 +35,7 @@ export function trfTest() {
 
       this.smoothedRows = smoothFractionalOctave(this.result.rows, this.fraction);
 
-      Plotly.newPlot('trf-chart', [
+      renderFrequencyResponseChart('trf-chart', [
         {
           x: this.smoothedRows.map((r) => r.frequency),
           y: this.smoothedRows.map((r) => r.rawMagnitude),
@@ -52,12 +52,7 @@ export function trfTest() {
           name: `1/${this.fraction} oct smoothed`,
           line: { width: 2, color: '#2563eb' }
         }
-      ], {
-        margin: { t: 20, r: 10, l: 40, b: 40 },
-        xaxis: { title: 'Frequency [Hz]', type: 'log', range: [Math.log10(20), Math.log10(20000)] },
-        yaxis: { title: 'Magnitude [dB]', range: [-18, 18] },
-        legend: { orientation: 'h' }
-      }, { responsive: true });
+      ], { showLegend: true });
     }
   };
 }
