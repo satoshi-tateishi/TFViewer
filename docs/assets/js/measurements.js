@@ -4,11 +4,32 @@ import { parseTrfFile, buildRawMeasurementJson } from './trf-parser.js';
 export async function listMeasurements() {
   const { data, error } = await supabase
     .from('measurements')
-    .select('id, file_name, measurement_name, trf_path, json_data, updated_at')
-    .order('file_name', { ascending: true });
+    .select('id, file_name, measurement_name, trf_path, json_data, updated_at, sort_order')
+    .order('sort_order', { ascending: true });
 
   if (error) throw error;
   return data;
+}
+
+// 一覧の並び替え結果を全員共通の並び順としてDBへ保存する。
+export async function updateMeasurementOrder(orderedIds) {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase.from('measurements').update({ sort_order: index }).eq('id', id)
+    )
+  );
+}
+
+async function nextSortOrder() {
+  const { data, error } = await supabase
+    .from('measurements')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data?.sort_order ?? -1) + 1;
 }
 
 function buildTrfStoragePath() {
@@ -81,7 +102,8 @@ export async function importMeasurementFile(file, uploadedBy) {
         measurement_name: parsed.measurementName,
         trf_path: trfPath,
         json_data: jsonData,
-        uploaded_by: uploadedBy
+        uploaded_by: uploadedBy,
+        sort_order: await nextSortOrder()
       });
 
     if (error) throw error;

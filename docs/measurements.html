@@ -35,9 +35,10 @@
 
     <div id="measurement-list" class="space-y-2">
       <template x-for="(measurement, index) in measurements" :key="measurement.id">
-        <div class="bg-white rounded-lg shadow p-3 flex items-center gap-3">
+        <div class="relative bg-white rounded-lg shadow p-3 flex items-center gap-3">
+          <span class="absolute top-1 right-2 text-[10px] leading-none text-gray-400" x-text="formatUpdatedAt(measurement.updated_at)"></span>
           <div class="flex items-center gap-3 flex-1 min-w-0" :class="checked[measurement.id] ? '' : 'grayscale opacity-50'">
-            <span class="drag-handle shrink-0 text-gray-400 cursor-grab select-none px-1">⠿</span>
+            <span x-show="canReorder" class="drag-handle shrink-0 text-gray-400 cursor-grab select-none px-1">⠿</span>
             <span class="w-3 h-3 rounded-full shrink-0" :style="swatchStyle(index)"></span>
             <input type="checkbox" :checked="checked[measurement.id]" @change="toggle(measurement.id)" class="w-5 h-5 shrink-0">
             <div class="flex-1 min-w-0" @click="toggle(measurement.id)">

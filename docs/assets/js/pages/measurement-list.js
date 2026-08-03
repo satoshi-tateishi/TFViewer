@@ -1,22 +1,35 @@
 import { initAuthenticatedPage } from '../layout.js';
-import { listMeasurements, deleteMeasurement } from '../measurements.js';
+import { listMeasurements, deleteMeasurement, updateMeasurementOrder } from '../measurements.js';
 import { smoothFractionalOctave, rowsFromMeasurementJson } from '../trf-parser.js';
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
 import { renderFrequencyResponseChart } from '../frequency-chart.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
+function formatUpdatedAt(iso) {
+  const date = new Date(iso);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mi = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+}
+
 export function measurementList() {
   return {
     isAdmin: false,
+    canReorder: false,
     loading: true,
     errorMessage: '',
     measurements: [],
     checked: {},
     fraction: getSmoothingFraction(),
+    formatUpdatedAt,
     async init() {
       const result = await initAuthenticatedPage();
       this.isAdmin = result?.profile?.role === 'administrator';
+      this.canReorder = ['administrator', 'operator'].includes(result?.profile?.role);
 
       try {
         this.measurements = await listMeasurements();
@@ -29,23 +42,33 @@ export function measurementList() {
       } finally {
         this.loading = false;
         this.renderChart();
-        this.$nextTick(() => this.initSortable());
+        if (this.canReorder) {
+          this.$nextTick(() => this.initSortable());
+        }
       }
     },
     initSortable() {
       const container = document.getElementById('measurement-list');
       if (!container) return;
 
-      // SortableJSがDOMを並び替えた後、その並びをそのままAlpineの配列へ反映する。
+      // SortableJSがDOMを並び替えた後、その並びをそのままAlpineの配列へ反映し、
+      // 全員共通の並び順としてDBへ保存する。
       // 凡例の順序はグラフのtrace配列順=この配列順で決まる。
       new Sortable(container, {
         animation: 150,
         handle: '.drag-handle',
-        onEnd: (event) => {
+        onEnd: async (event) => {
           if (event.oldIndex === event.newIndex) return;
           const moved = this.measurements.splice(event.oldIndex, 1)[0];
           this.measurements.splice(event.newIndex, 0, moved);
           this.renderChart();
+
+          try {
+            await updateMeasurementOrder(this.measurements.map((m) => m.id));
+          } catch (error) {
+            console.error(error);
+            this.errorMessage = '並び順の保存に失敗しました。';
+          }
         }
       });
     },
