@@ -158,7 +158,8 @@ export function smoothFractionalOctave(rows, fraction = DEFAULT_SMOOTHING_FRACTI
       frequency: centerFrequency,
       rawMagnitude: sortedRows[centerIndex].magnitude,
       smoothedMagnitude,
-      smoothingPointCount
+      smoothingPointCount,
+      coherence: sortedRows[centerIndex].coherence
     });
   }
 

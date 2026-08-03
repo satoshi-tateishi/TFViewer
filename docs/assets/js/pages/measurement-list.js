@@ -7,6 +7,38 @@ import { renderFrequencyResponseChart } from '../frequency-chart.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
+// スムージング済みの行を、コヒーレンス閾値以上/未満の連続区間に分割する。
+// 区間の境界点は両側に含め、線が途切れずに繋がって見えるようにする。
+// coherenceを持たない行（未対応形式）は常に閾値以上として扱う。
+function splitByCoherence(rows, threshold) {
+  const segments = [];
+  let currentIsLow = null;
+  let currentPoints = [];
+
+  rows.forEach((row) => {
+    const isLow = row.coherence !== undefined && row.coherence < threshold;
+    if (currentIsLow === null) {
+      currentIsLow = isLow;
+      currentPoints = [row];
+      return;
+    }
+    if (isLow === currentIsLow) {
+      currentPoints.push(row);
+      return;
+    }
+    currentPoints.push(row);
+    segments.push({ isLowCoherence: currentIsLow, points: currentPoints });
+    currentIsLow = isLow;
+    currentPoints = [row];
+  });
+
+  if (currentPoints.length > 0) {
+    segments.push({ isLowCoherence: currentIsLow, points: currentPoints });
+  }
+
+  return segments;
+}
+
 function formatUpdatedAt(iso) {
   const date = new Date(iso);
   const yyyy = date.getFullYear();
@@ -95,24 +127,31 @@ export function measurementList() {
       return `background-color: ${this.colorForIndex(index)}`;
     },
     renderChart() {
-      const traces = this.measurements
-        .map((measurement, index) => ({ measurement, color: this.colorForIndex(index) }))
-        .filter(({ measurement }) => this.checked[measurement.id])
-        .map(({ measurement, color }) => {
-          // coherenceを保持していない形式・データはフィルタ対象外（全点そのまま使う）。
-          const rows = rowsFromMeasurementJson(measurement.json_data)
-            .filter((row) => row.coherence === undefined || row.coherence >= this.coherenceThreshold);
-          const smoothed = smoothFractionalOctave(rows, this.fraction);
+      const traces = [];
 
-          return {
-            x: smoothed.map((row) => row.frequency),
-            y: smoothed.map((row) => row.smoothedMagnitude),
+      this.measurements.forEach((measurement, index) => {
+        if (!this.checked[measurement.id]) return;
+
+        const color = this.colorForIndex(index);
+        const rows = rowsFromMeasurementJson(measurement.json_data);
+        // スムージングは常に全データで行い、閾値を変えても波形の形自体は変わらないようにする。
+        // コヒーレンス閾値未満の区間は、線を消さずopacityを下げて視覚的に示すだけにとどめる。
+        const smoothed = smoothFractionalOctave(rows, this.fraction);
+
+        splitByCoherence(smoothed, this.coherenceThreshold).forEach((segment, segmentIndex) => {
+          traces.push({
+            x: segment.points.map((row) => row.frequency),
+            y: segment.points.map((row) => row.smoothedMagnitude),
             type: 'scatter',
             mode: 'lines',
             name: measurement.file_name,
+            legendgroup: measurement.file_name,
+            showlegend: segmentIndex === 0,
+            opacity: segment.isLowCoherence ? 0.25 : 1,
             line: { width: 2, color }
-          };
+          });
         });
+      });
 
       renderFrequencyResponseChart('compare-chart', traces);
     }
