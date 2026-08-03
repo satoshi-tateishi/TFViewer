@@ -115,18 +115,19 @@
 - [x] チェック変更時の即時再描画
 - [x] 平滑化のグローバル設定UI（デフォルト1/6oct、`localStorage`に保存）
 - [x] Administratorのみ測定の削除が可能（DB行 + Storageファイルを削除）
-- [ ] 軸範囲（周波数/dBレンジ）のユーザー設定変更UI
+- [x] 軸範囲（周波数/dBレンジ）のユーザー設定変更UI
 
 * * *
 
 ## Phase 7: セキュリティ強化
 
-- [ ] HTTPS配信の確認（GitHub Pagesは標準でHTTPS）
-- [ ] UUIDファイル名の徹底確認
-- [ ] ファイルサイズ制限のクライアント側チェック追加（Storage側制限と二重化）
-- [ ] `.trf`拡張子以外を弾くクライアント側バリデーション
-- [ ] JACKREFシグネチャ確認をアップロード時の必須チェックとして組み込み（実装済みのtrf-parser.jsで対応済み、再確認のみ）
-- [ ] RLSポリシーの動作確認（各ロールで許可/拒否が意図通りか）
+- [x] HTTPS配信の確認 → GitHub Pagesは標準でHTTPS（Phase 9公開時に実URLで再確認）
+- [x] UUIDファイル名の徹底確認 → `crypto.randomUUID()`（`docs/assets/js/measurements.js`）
+- [x] ファイルサイズ制限のクライアント側チェック追加 → `docs/assets/js/pages/upload.js`（10MB、Storage側制限と二重化）
+- [x] `.trf`拡張子以外を弾くクライアント側バリデーション → `docs/assets/js/pages/upload.js`
+- [x] JACKREFシグネチャ確認 → `docs/assets/js/trf-parser.js`で実装済み
+- [x] Supabaseのセルフサインアップ・メール確認設定を無効化（会話内でダッシュボード設定を確認済み）
+- [x] RLSポリシーの動作確認（各ロールで許可/拒否が意図通りか）→ Playwrightでoperator/stagemanアカウントを検証。SELECT/INSERT/DELETE/Storageアップロードとも意図通り
 
 * * *
 

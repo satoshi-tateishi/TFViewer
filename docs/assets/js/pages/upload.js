@@ -1,6 +1,9 @@
 import { initAuthenticatedPage } from '../layout.js';
 import { importMeasurementFile } from '../measurements.js';
 
+// Storage側のfile_size_limit（002_storage.sql）と合わせる。
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
 export function uploadForm() {
   return {
     session: null,
@@ -26,6 +29,11 @@ export function uploadForm() {
       for (const file of files) {
         if (!file.name.toLowerCase().endsWith('.trf')) {
           this.results.unshift({ fileName: file.name, ok: false, status: 'エラー', message: '.trfファイルではありません。' });
+          continue;
+        }
+
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          this.results.unshift({ fileName: file.name, ok: false, status: 'エラー', message: 'ファイルサイズが10MBを超えています。' });
           continue;
         }
 
