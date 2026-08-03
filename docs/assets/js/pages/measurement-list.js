@@ -110,21 +110,27 @@ export function measurementList() {
         alert(translateError(error));
       }
     },
-    // 色は一覧の並び順（上から順）に固定し、チェックON/OFFでは変わらない。
-    // 入れ替えたい場合は▲▼で並び替える。
-    colorForIndex(index) {
+    // 色は「現在チェックしている項目の中での順番」で割り当てる。
+    // 一覧全体の並び順で固定すると、測定数が増えたときに色数（TRACE_COLORS.length）を
+    // 超えて巡回し、同時に比較表示した測定同士で色が被ってしまうため。
+    // 比較表示は最大でも数本程度である前提なので、チェックON/OFFのたびに
+    // 色が変わり得ることよりも、表示中の色が必ず被らないことを優先する。
+    colorFor(measurement) {
+      if (!this.checked[measurement.id]) return '#9ca3af';
+      const checkedIds = this.measurements.filter((m) => this.checked[m.id]).map((m) => m.id);
+      const index = checkedIds.indexOf(measurement.id);
       return TRACE_COLORS[index % TRACE_COLORS.length];
     },
-    swatchStyle(index) {
-      return `background-color: ${this.colorForIndex(index)}`;
+    swatchStyle(measurement) {
+      return `background-color: ${this.colorFor(measurement)}`;
     },
     renderChart() {
       const traces = [];
 
-      this.measurements.forEach((measurement, index) => {
+      this.measurements.forEach((measurement) => {
         if (!this.checked[measurement.id]) return;
 
-        const color = this.colorForIndex(index);
+        const color = this.colorFor(measurement);
         const rows = rowsFromMeasurementJson(measurement.json_data);
         // スムージングは常に全データで行い、閾値を変えても波形の形自体は変わらないようにする。
         // コヒーレンス閾値未満の区間は、線を消さずopacityを下げて視覚的に示すだけにとどめる。
