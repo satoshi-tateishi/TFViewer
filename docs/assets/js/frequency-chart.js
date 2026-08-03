@@ -7,36 +7,19 @@ const Y_MINOR_DTICK = 1;
 const GRID_COLOR_MAJOR = '#000000';
 const GRID_COLOR_MINOR = '#d1d5db';
 
-// Smaartの表示に合わせ、各桁の1/2/3/4/6/8倍の位置にグリッドを引く
-// （例: 20,30,40,60,80,100,200,300,400,600,800,1k,2k...）。
+// 1オクターブごとの標準中心周波数にラベル・グリッドを引く
+// （31.5, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k, ...）。
 function buildXMajorTickvals() {
-  const digits = [1, 2, 3, 4, 6, 8];
-  const values = [];
-  for (let decade = 10; decade <= 10000; decade *= 10) {
-    digits.forEach((digit) => {
-      const value = digit * decade;
-      if (value >= X_RANGE_HZ[0] && value <= X_RANGE_HZ[1]) {
-        values.push(value);
-      }
-    });
-  }
-  return values;
+  const OCTAVE_BANDS = [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000, 31500];
+  return OCTAVE_BANDS.filter((value) => value >= X_RANGE_HZ[0] && value <= X_RANGE_HZ[1]);
 }
-
-// 主要目盛の間を補う追加の縦線。ラベルは付けず黒線のみ表示する
-// （既存目盛と間隔が狭く、ラベルを付けると重なるため）。
-const X_EXTRA_GRIDLINES = [500, 700, 900, 5000, 7000, 9000, 15000];
 
 function formatFrequencyLabel(hz) {
   return hz >= 1000 ? `${hz / 1000}k` : String(hz);
 }
 
-const X_MAJOR_TICKVALS = [...buildXMajorTickvals(), ...X_EXTRA_GRIDLINES]
-  .filter((value, index, all) => all.indexOf(value) === index)
-  .sort((a, b) => a - b);
-
-const X_EXTRA_SET = new Set(X_EXTRA_GRIDLINES);
-const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map((hz) => (X_EXTRA_SET.has(hz) ? '' : formatFrequencyLabel(hz)));
+const X_MAJOR_TICKVALS = buildXMajorTickvals();
+const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map(formatFrequencyLabel);
 
 const HOVER_TEMPLATE = '%{y:.1f} dB<extra></extra>';
 
