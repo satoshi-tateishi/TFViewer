@@ -56,9 +56,13 @@ export function measurementList() {
       // 正として並び替え結果を確定させる。
       // 全員共通の並び順としてDBへ保存する。
       // 凡例の順序はグラフのtrace配列順=この配列順で決まる。
+      // forceFallback: iOS Safariのネイティブタッチドラッグ処理は不安定なため、
+      // SortableJS独自のフォールバック実装（クローン要素で追従）に統一する。
       new Sortable(container, {
         animation: 150,
         handle: '.drag-handle',
+        forceFallback: true,
+        fallbackTolerance: 3,
         onEnd: async () => {
           const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
           const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
