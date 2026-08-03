@@ -54,7 +54,9 @@ export function renderFrequencyResponseChart(elementId, traces, { showLegend = f
       showgrid: true,
       gridcolor: GRID_COLOR_MAJOR,
       gridwidth: 1,
-      zeroline: false,
+      zeroline: true,
+      zerolinecolor: GRID_COLOR_MAJOR,
+      zerolinewidth: 2.5,
       showspikes: false,
       minor: {
         dtick: Y_MINOR_DTICK,
