@@ -5,6 +5,7 @@ import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting
 import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
 import { renderFrequencyResponseChart } from '../frequency-chart.js';
 import { formatUpdatedAt } from '../format.js';
+import { translateError } from '../error-messages.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
@@ -42,7 +43,7 @@ function splitByCoherence(rows, threshold) {
 
 export function measurementList() {
   return {
-    isAdmin: false,
+    canDelete: false,
     canReorder: false,
     loading: true,
     errorMessage: '',
@@ -53,7 +54,7 @@ export function measurementList() {
     formatUpdatedAt,
     async init() {
       const result = await initAuthenticatedPage();
-      this.isAdmin = result?.profile?.role === 'Admin';
+      this.canDelete = ['Admin', 'Editor'].includes(result?.profile?.role);
       this.canReorder = ['Admin', 'Editor'].includes(result?.profile?.role);
 
       try {
@@ -106,7 +107,7 @@ export function measurementList() {
         this.renderChart();
       } catch (error) {
         console.error(error);
-        alert('削除に失敗しました。');
+        alert(translateError(error));
       }
     },
     // 色は一覧の並び順（上から順）に固定し、チェックON/OFFでは変わらない。

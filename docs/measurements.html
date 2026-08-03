@@ -64,7 +64,7 @@
               <div class="text-xs text-gray-500 truncate" x-text="measurement.measurement_name"></div>
             </div>
           </div>
-          <button type="button" :disabled="!isAdmin" @click="remove(measurement)" class="text-red-600 text-xs shrink-0 disabled:opacity-20 disabled:cursor-not-allowed">削除</button>
+          <button type="button" :disabled="!canDelete" @click="remove(measurement)" class="text-red-600 text-xs shrink-0 disabled:opacity-20 disabled:cursor-not-allowed">削除</button>
         </div>
       </template>
     </div>
