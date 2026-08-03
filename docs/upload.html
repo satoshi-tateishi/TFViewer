@@ -16,7 +16,7 @@
   <main class="max-w-md mx-auto px-4 py-6 space-y-4" x-data="uploadForm()" x-init="init()">
     <h1 class="text-xl font-bold">アップロード</h1>
     <p class="text-sm text-gray-600">
-      TRFファイルをドラッグ&ドロップ、またはタップして選択してください。
+      TRF/CSVファイルをドラッグ&ドロップ、またはタップして選択してください。
       同じファイル名の測定は自動的に上書きされます。
     </p>
 
@@ -30,7 +30,7 @@
     >
       <p x-show="!processing">タップしてファイルを選択、またはドラッグ&ドロップ</p>
       <p x-show="processing">取り込み中...</p>
-      <input type="file" accept=".trf" multiple x-ref="fileInput" class="hidden" @change="onFileSelected">
+      <input type="file" accept=".trf,.csv" multiple x-ref="fileInput" class="hidden" @change="onFileSelected">
     </div>
 
     <div class="space-y-2" x-show="results.length > 0">

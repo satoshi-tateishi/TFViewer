@@ -27,8 +27,9 @@ export function uploadForm() {
       this.processing = true;
 
       for (const file of files) {
-        if (!file.name.toLowerCase().endsWith('.trf')) {
-          this.results.unshift({ fileName: file.name, ok: false, status: 'エラー', message: '.trfファイルではありません。' });
+        const lowerName = file.name.toLowerCase();
+        if (!lowerName.endsWith('.trf') && !lowerName.endsWith('.csv')) {
+          this.results.unshift({ fileName: file.name, ok: false, status: 'エラー', message: '.trfまたは.csvファイルではありません。' });
           continue;
         }
 

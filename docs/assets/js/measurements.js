@@ -1,5 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { parseTrfFile, buildRawMeasurementJson } from './trf-parser.js';
+import { parseCsvFile } from './csv-parser.js';
 
 export async function listMeasurements() {
   const { data, error } = await supabase
@@ -34,17 +35,17 @@ async function nextSortOrder() {
   return (data?.sort_order ?? -1) + 1;
 }
 
-function buildTrfStoragePath() {
+function buildSourceStoragePath(extension) {
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
-  return `${yyyy}/${mm}/${crypto.randomUUID()}.trf`;
+  return `${yyyy}/${mm}/${crypto.randomUUID()}.${extension}`;
 }
 
-async function uploadTrfFile(file) {
-  const path = buildTrfStoragePath();
+async function uploadSourceFile(file, extension, contentType) {
+  const path = buildSourceStoragePath(extension);
   const { error } = await supabase.storage.from('trf').upload(path, file, {
-    contentType: 'application/octet-stream',
+    contentType,
     upsert: false
   });
 
@@ -56,11 +57,12 @@ async function removeTrfFile(path) {
   await supabase.storage.from('trf').remove([path]);
 }
 
-// 同じファイル名が既に存在する場合は上書きする。
-// 過去データは保持しない方針のため、置き換えられた古いTRFファイルは
+// 同じファイル名が既に存在する場合は上書きする。TRF/CSVいずれの形式も対応。
+// 過去データは保持しない方針のため、置き換えられた古い測定ファイルは
 // DB更新の成功を確認したうえでStorageから削除する。
 export async function importMeasurementFile(file, uploadedBy) {
-  const parsed = await parseTrfFile(file);
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
+  const parsed = isCsv ? await parseCsvFile(file) : await parseTrfFile(file);
   const jsonData = buildRawMeasurementJson(parsed.rows);
 
   const { data: existing, error: lookupError } = await supabase
@@ -71,7 +73,9 @@ export async function importMeasurementFile(file, uploadedBy) {
 
   if (lookupError) throw lookupError;
 
-  const trfPath = await uploadTrfFile(file);
+  const trfPath = isCsv
+    ? await uploadSourceFile(file, 'csv', 'text/csv')
+    : await uploadSourceFile(file, 'trf', 'application/octet-stream');
 
   try {
     if (existing) {
