@@ -51,25 +51,13 @@ export function measurementList() {
       const container = document.getElementById('measurement-list');
       if (!container) return;
 
-      // event.oldIndex/newIndexはiOS Safariのタッチドラッグでは実際のDOM順と
-      // ずれることがあるため信用せず、ドロップ後のDOMの実並び（data-id）を
-      // 正として並び替え結果を確定させる。
+      // event.oldIndex/newIndexは実際のDOM順とずれる場合があるため信用せず、
+      // ドロップ後のDOMの実並び（data-id）を正として並び替え結果を確定させる。
       // 全員共通の並び順としてDBへ保存する。
       // 凡例の順序はグラフのtrace配列順=この配列順で決まる。
-      // forceFallback: iOS Safariのネイティブタッチドラッグ処理は不安定なため、
-      // SortableJS独自のフォールバック実装（クローン要素で追従）に統一する。
       new Sortable(container, {
         animation: 150,
         handle: '.drag-handle',
-        forceFallback: true,
-        fallbackOnBody: true,
-        fallbackTolerance: 5,
-        delay: 200,
-        delayOnTouchOnly: true,
-        touchStartThreshold: 4,
-        scroll: true,
-        scrollSensitivity: 60,
-        scrollSpeed: 10,
         onEnd: async () => {
           const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
           const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
