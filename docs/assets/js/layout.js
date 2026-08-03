@@ -40,4 +40,11 @@ function renderNavUserInfo(session, profile) {
 
   const name = profile.display_name || session.user.email;
   el.textContent = `${name}（${profile.role}）`;
+
+  const uploadLink = document.getElementById('nav-upload-link');
+  if (uploadLink) {
+    const canUpload = ['Admin', 'Editor'].includes(profile.role);
+    uploadLink.classList.toggle('opacity-30', !canUpload);
+    uploadLink.classList.toggle('pointer-events-none', !canUpload);
+  }
 }

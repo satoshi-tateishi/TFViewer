@@ -22,16 +22,23 @@
 
     <div
       class="border-2 border-dashed rounded-lg p-8 text-center text-sm text-gray-500 bg-white"
-      :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'"
+      :class="{
+        'border-blue-500 bg-blue-50': isDragging,
+        'border-gray-300': !isDragging,
+        'opacity-40 pointer-events-none cursor-not-allowed': !canUpload
+      }"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="onDrop"
       @click="$refs.fileInput.click()"
     >
-      <p x-show="!processing">タップしてファイルを選択、またはドラッグ&ドロップ</p>
+      <p x-show="canUpload && !processing">タップしてファイルを選択、またはドラッグ&ドロップ</p>
       <p x-show="processing">取り込み中...</p>
-      <input type="file" accept=".trf,.csv" multiple x-ref="fileInput" class="hidden" @change="onFileSelected">
+      <input type="file" accept=".trf,.csv" multiple x-ref="fileInput" class="hidden" @change="onFileSelected" :disabled="!canUpload">
     </div>
+    <p x-show="!canUpload" class="text-xs text-amber-600 text-center">
+      閲覧専用アカウントのため、アップロードはできません。
+    </p>
 
     <div class="space-y-2" x-show="results.length > 0">
       <template x-for="(result, index) in results" :key="index">

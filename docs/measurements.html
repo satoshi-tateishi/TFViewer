@@ -52,9 +52,9 @@
       <template x-for="(measurement, index) in measurements" :key="measurement.id">
         <div class="relative bg-white rounded-lg shadow p-3 flex items-center gap-3">
           <span class="absolute top-1 right-2 text-[10px] leading-none text-gray-400" x-text="formatUpdatedAt(measurement.updated_at)"></span>
-          <div x-show="canReorder" class="flex flex-col shrink-0 -my-2">
-            <button type="button" :disabled="index === 0" @click="move(index, -1)" aria-label="上へ" class="text-gray-400 disabled:opacity-20 w-8 h-8 flex items-center justify-center leading-none">▲</button>
-            <button type="button" :disabled="index === measurements.length - 1" @click="move(index, 1)" aria-label="下へ" class="text-gray-400 disabled:opacity-20 w-8 h-8 flex items-center justify-center leading-none">▼</button>
+          <div class="flex flex-col shrink-0 -my-2">
+            <button type="button" :disabled="!canReorder || index === 0" @click="move(index, -1)" aria-label="上へ" class="text-gray-400 disabled:opacity-20 disabled:cursor-not-allowed w-8 h-8 flex items-center justify-center leading-none">▲</button>
+            <button type="button" :disabled="!canReorder || index === measurements.length - 1" @click="move(index, 1)" aria-label="下へ" class="text-gray-400 disabled:opacity-20 disabled:cursor-not-allowed w-8 h-8 flex items-center justify-center leading-none">▼</button>
           </div>
           <div class="flex items-center gap-3 flex-1 min-w-0" :class="checked[measurement.id] ? '' : 'grayscale opacity-50'">
             <span class="w-3 h-3 rounded-full shrink-0" :style="swatchStyle(index)"></span>
@@ -64,7 +64,7 @@
               <div class="text-xs text-gray-500 truncate" x-text="measurement.measurement_name"></div>
             </div>
           </div>
-          <button type="button" x-show="isAdmin" @click="remove(measurement)" class="text-red-600 text-xs shrink-0">削除</button>
+          <button type="button" :disabled="!isAdmin" @click="remove(measurement)" class="text-red-600 text-xs shrink-0 disabled:opacity-20 disabled:cursor-not-allowed">削除</button>
         </div>
       </template>
     </div>
