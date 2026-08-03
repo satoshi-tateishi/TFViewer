@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFViewer マイク登録・編集</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@2"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+
+  <div id="nav-placeholder" hx-get="partials/nav.html" hx-trigger="load" hx-swap="innerHTML"></div>
+
+  <main class="max-w-md mx-auto px-4 py-6 space-y-4" x-data="microphoneEdit()" x-init="init()">
+    <p x-show="loading" class="text-sm text-gray-500">読み込み中...</p>
+    <p x-show="!loading && !allowed" class="text-sm text-red-600">この操作には管理者権限が必要です。</p>
+
+    <template x-if="!loading && allowed">
+      <div class="space-y-4">
+        <h1 class="text-xl font-bold" x-text="isNew ? '新規登録' : '編集'"></h1>
+
+        <form @submit.prevent="save" class="bg-white rounded-lg shadow p-4 space-y-4">
+          <div>
+            <label class="block text-xs font-medium mb-1">管理番号 *</label>
+            <input x-model="form.management_number" required class="w-full border rounded px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">メーカー</label>
+            <input x-model="form.manufacturer" class="w-full border rounded px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">型番</label>
+            <input x-model="form.model" class="w-full border rounded px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">シリアル</label>
+            <input x-model="form.serial_number" class="w-full border rounded px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">状態</label>
+            <select x-model="form.status" class="w-full border rounded px-2 py-2 text-sm">
+              <template x-for="option in statusOptions" :key="option.value">
+                <option :value="option.value" x-text="option.label"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">備考</label>
+            <textarea x-model="form.note" rows="4" class="w-full border rounded px-2 py-2 text-sm"></textarea>
+          </div>
+
+          <p x-show="errorMessage" x-text="errorMessage" class="text-sm text-red-600"></p>
+
+          <div class="flex gap-2">
+            <button type="submit" :disabled="saving"
+                    class="flex-1 bg-blue-600 text-white rounded py-2 text-sm font-medium disabled:opacity-50">
+              <span x-show="!saving">保存</span>
+              <span x-show="saving">保存中...</span>
+            </button>
+            <button type="button" @click="history.back()"
+                    class="flex-1 bg-gray-200 text-gray-800 rounded py-2 text-sm">キャンセル</button>
+          </div>
+        </form>
+      </div>
+    </template>
+  </main>
+
+  <script type="module">
+    import { initAuthenticatedPage } from './assets/js/layout.js';
+    import { getMicrophoneHead, createMicrophoneHead, updateMicrophoneHead, STATUS_OPTIONS } from './assets/js/microphones.js';
+
+    window.microphoneEdit = function () {
+      return {
+        id: null,
+        isNew: true,
+        allowed: false,
+        loading: true,
+        saving: false,
+        errorMessage: '',
+        statusOptions: STATUS_OPTIONS,
+        form: {
+          management_number: '',
+          manufacturer: '',
+          model: '',
+          serial_number: '',
+          status: 'active',
+          note: ''
+        },
+        async init() {
+          const result = await initAuthenticatedPage();
+          this.allowed = result?.profile?.role === 'administrator';
+
+          this.id = new URLSearchParams(window.location.search).get('id');
+          this.isNew = !this.id;
+
+          if (this.allowed && this.id) {
+            try {
+              const head = await getMicrophoneHead(this.id);
+              this.form = {
+                management_number: head.management_number,
+                manufacturer: head.manufacturer ?? '',
+                model: head.model ?? '',
+                serial_number: head.serial_number ?? '',
+                status: head.status,
+                note: head.note ?? ''
+              };
+            } catch (error) {
+              console.error(error);
+              this.errorMessage = 'マイク情報の取得に失敗しました。';
+            }
+          }
+
+          this.loading = false;
+        },
+        async save() {
+          this.saving = true;
+          this.errorMessage = '';
+          try {
+            const saved = this.isNew
+              ? await createMicrophoneHead(this.form)
+              : await updateMicrophoneHead(this.id, this.form);
+            window.location.href = `./microphone-detail.html?id=${saved.id}`;
+          } catch (error) {
+            console.error(error);
+            this.errorMessage = '保存に失敗しました。管理番号が重複していないか確認してください。';
+          } finally {
+            this.saving = false;
+          }
+        }
+      };
+    };
+  </script>
+  <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+</body>
+</html>

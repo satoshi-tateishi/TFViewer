@@ -22,3 +22,17 @@ export async function requireAuth() {
   }
   return session;
 }
+
+export async function getCurrentProfile() {
+  const session = await getSession();
+  if (!session) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, display_name')
+    .eq('id', session.user.id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}

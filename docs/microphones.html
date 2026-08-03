@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFViewer マイク一覧</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@2"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+
+  <div id="nav-placeholder" hx-get="partials/nav.html" hx-trigger="load" hx-swap="innerHTML"></div>
+
+  <main class="max-w-md mx-auto px-4 py-6 space-y-4" x-data="microphoneList()" x-init="init()">
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-bold">マイク一覧</h1>
+      <a x-show="isAdmin" href="./microphone-edit.html"
+         class="bg-blue-600 text-white rounded px-3 py-2 text-sm">新規登録</a>
+    </div>
+
+    <form @submit.prevent="search" class="bg-white rounded-lg shadow p-4 grid grid-cols-1 gap-3">
+      <div>
+        <label class="block text-xs font-medium mb-1">管理番号</label>
+        <input x-model="filters.managementNumber" class="w-full border rounded px-2 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">メーカー</label>
+        <input x-model="filters.manufacturer" class="w-full border rounded px-2 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">型番</label>
+        <input x-model="filters.model" class="w-full border rounded px-2 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">状態</label>
+        <select x-model="filters.status" class="w-full border rounded px-2 py-2 text-sm">
+          <option value="">すべて</option>
+          <template x-for="option in statusOptions" :key="option.value">
+            <option :value="option.value" x-text="option.label"></option>
+          </template>
+        </select>
+      </div>
+      <button type="submit" class="bg-gray-800 text-white rounded px-4 py-2 text-sm">検索</button>
+    </form>
+
+    <p x-show="errorMessage" x-text="errorMessage" class="text-sm text-red-600"></p>
+    <p x-show="loading" class="text-sm text-gray-500">読み込み中...</p>
+
+    <div class="space-y-3" x-show="!loading">
+      <template x-for="head in heads" :key="head.id">
+        <div class="bg-white rounded-lg shadow p-4 active:bg-gray-50"
+             @click="location.href = `./microphone-detail.html?id=${head.id}`">
+          <div class="flex items-center justify-between">
+            <span class="font-bold" x-text="head.management_number"></span>
+            <span class="text-xs bg-gray-100 rounded px-2 py-1" x-text="statusLabel(head.status)"></span>
+          </div>
+          <div class="text-sm text-gray-600 mt-1" x-text="`${head.manufacturer ?? ''} ${head.model ?? ''}`"></div>
+          <div class="text-xs text-gray-500 mt-2 flex justify-between">
+            <span x-text="`最終測定: ${head.last_measured_at ?? '-'}`"></span>
+            <span x-text="`測定回数: ${head.measurement_count ?? 0}`"></span>
+          </div>
+        </div>
+      </template>
+      <p x-show="!loading && heads.length === 0" class="text-sm text-gray-500 text-center py-4">該当するマイクがありません。</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initAuthenticatedPage } from './assets/js/layout.js';
+    import { listMicrophoneHeads, STATUS_OPTIONS, statusLabel } from './assets/js/microphones.js';
+
+    window.microphoneList = function () {
+      return {
+        heads: [],
+        filters: { managementNumber: '', manufacturer: '', model: '', status: '' },
+        statusOptions: STATUS_OPTIONS,
+        isAdmin: false,
+        loading: false,
+        errorMessage: '',
+        statusLabel,
+        async init() {
+          const result = await initAuthenticatedPage();
+          this.isAdmin = result?.profile?.role === 'administrator';
+          await this.search();
+        },
+        async search() {
+          this.loading = true;
+          this.errorMessage = '';
+          try {
+            this.heads = await listMicrophoneHeads(this.filters);
+          } catch (error) {
+            console.error(error);
+            this.errorMessage = '一覧の取得に失敗しました。';
+          } finally {
+            this.loading = false;
+          }
+        }
+      };
+    };
+  </script>
+  <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+</body>
+</html>
