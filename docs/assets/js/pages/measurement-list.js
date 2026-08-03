@@ -58,13 +58,21 @@ export function measurementList() {
       new Sortable(container, {
         animation: 150,
         handle: '.drag-handle',
+        // TODO(debug): iOS Safariでの並び替え不具合切り分け用の一時ログ。解決後に削除する。
+        onStart: (event) => console.log('[sort] start', event.item?.dataset?.id),
+        onMove: (event) => console.log('[sort] move related=', event.related?.dataset?.id),
         onEnd: async () => {
           const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
+          console.log('[sort] end domOrder=', orderedIds);
           const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
           const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
-          if (reordered.length !== this.measurements.length) return;
+          if (reordered.length !== this.measurements.length) {
+            console.log('[sort] length mismatch', reordered.length, this.measurements.length);
+            return;
+          }
 
           const changed = reordered.some((m, i) => m.id !== this.measurements[i].id);
+          console.log('[sort] changed=', changed);
           if (!changed) return;
 
           this.measurements = reordered;
