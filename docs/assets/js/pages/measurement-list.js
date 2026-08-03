@@ -42,50 +42,22 @@ export function measurementList() {
       } finally {
         this.loading = false;
         this.renderChart();
-        if (this.canReorder) {
-          this.$nextTick(() => this.initSortable());
-        }
       }
     },
-    initSortable() {
-      const container = document.getElementById('measurement-list');
-      if (!container) return;
+    async move(index, offset) {
+      const target = index + offset;
+      if (target < 0 || target >= this.measurements.length) return;
 
-      // event.oldIndex/newIndexは実際のDOM順とずれる場合があるため信用せず、
-      // ドロップ後のDOMの実並び（data-id）を正として並び替え結果を確定させる。
-      // 全員共通の並び順としてDBへ保存する。
-      // 凡例の順序はグラフのtrace配列順=この配列順で決まる。
-      new Sortable(container, {
-        animation: 150,
-        handle: '.drag-handle',
-        // TODO(debug): iOS Safariでの並び替え不具合切り分け用の一時ログ。解決後に削除する。
-        onStart: (event) => console.log('[sort] start', event.item?.dataset?.id),
-        onMove: (event) => console.log('[sort] move related=', event.related?.dataset?.id),
-        onEnd: async () => {
-          const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
-          console.log('[sort] end domOrder=', orderedIds);
-          const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
-          const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
-          if (reordered.length !== this.measurements.length) {
-            console.log('[sort] length mismatch', reordered.length, this.measurements.length);
-            return;
-          }
+      const [moved] = this.measurements.splice(index, 1);
+      this.measurements.splice(target, 0, moved);
+      this.renderChart();
 
-          const changed = reordered.some((m, i) => m.id !== this.measurements[i].id);
-          console.log('[sort] changed=', changed);
-          if (!changed) return;
-
-          this.measurements = reordered;
-          this.renderChart();
-
-          try {
-            await updateMeasurementOrder(this.measurements.map((m) => m.id));
-          } catch (error) {
-            console.error(error);
-            this.errorMessage = '並び順の保存に失敗しました。';
-          }
-        }
-      });
+      try {
+        await updateMeasurementOrder(this.measurements.map((m) => m.id));
+      } catch (error) {
+        console.error(error);
+        this.errorMessage = '並び順の保存に失敗しました。';
+      }
     },
     onFractionChange() {
       setSmoothingFraction(this.fraction);
@@ -109,7 +81,7 @@ export function measurementList() {
       }
     },
     // 色は一覧の並び順（上から順）に固定し、チェックON/OFFでは変わらない。
-    // 入れ替えたい場合はDnDで並び替える。
+    // 入れ替えたい場合は▲▼で並び替える。
     colorForIndex(index) {
       return TRACE_COLORS[index % TRACE_COLORS.length];
     },

@@ -4,24 +4,3 @@
 body {
   font-feature-settings: "palt";
 }
-
-/* touch-action未指定だとiOS Safariがハンドルでのタッチをネイティブスクロールと
-   解釈し、SortableJSのドラッグ開始前にジェスチャーを奪ってしまう。
-   また-webkit-touch-calloutを外さないと、文字（⠿）の長押しでiOS標準の
-   選択メニュー（虫眼鏡）が割り込み、ドラッグとして認識されない。 */
-.drag-handle {
-  touch-action: none;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-}
-
-.sortable-ghost {
-  opacity: 0.4;
-}
-
-/* フォールバック用のクローン要素がpointer-eventsを持ったままだと、
-   iOS Safariで指の下にある要素（ドロップ先）の検出をクローン自身が
-   奪ってしまい、並び替えが確定しないことがある。 */
-.sortable-fallback {
-  pointer-events: none;
-}
