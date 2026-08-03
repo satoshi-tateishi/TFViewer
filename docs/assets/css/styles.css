@@ -9,19 +9,10 @@ body {
    解釈し、SortableJSのドラッグ開始前にジェスチャーを奪ってしまう。
    また-webkit-touch-calloutを外さないと、文字（⠿）の長押しでiOS標準の
    選択メニュー（虫眼鏡）が割り込み、ドラッグとして認識されない。 */
-/* -webkit-user-dragを外さないと、iOS SafariがOS標準の「持ち上げてドラッグ」
-   ジェスチャーとして扱ってしまい、SortableJSのtouchstart自体が発火しない。 */
 .drag-handle {
   touch-action: none;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
-  -webkit-user-drag: none;
-  user-drag: none;
-}
-
-#measurement-list > div {
-  -webkit-user-drag: none;
-  user-drag: none;
 }
 
 .sortable-ghost {
