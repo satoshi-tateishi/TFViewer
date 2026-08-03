@@ -141,10 +141,11 @@
 
 ## Phase 9: GitHub Pages公開設定
 
-- [ ] GitHub Pages公開ブランチ/ディレクトリを決定（`main`ブランチの`/docs`を採用済み）
-- [ ] リポジトリ設定 > Pages で公開ソースを設定
-- [ ] Supabase側の認証コールバックURL・許可オリジンにGitHub PagesのURLを登録
-- [ ] 公開後の動作確認（ログイン〜アップロード〜一覧・比較まで一通り）
+- [x] GitHub Pages公開ブランチ/ディレクトリを決定（`main`ブランチの`/docs`）
+- [x] リポジトリ設定 > Pages で公開ソースを設定 → https://satoshi-tateishi.github.io/TFViewer/ で公開中
+- [x] Supabase側のSite URL / Redirect URLsにGitHub PagesのURLを登録
+- [x] 公開後の動作確認（ログイン〜一覧〜アップロード〜ログアウト）→ Playwrightで本番URLを確認、正常動作
+- [x] Plotly.jsを`plotly-latest.min.js`（実体はv1.58.5で更新停止）から`plotly-2.35.2.min.js`へ明示バージョン固定
 
 * * *
 

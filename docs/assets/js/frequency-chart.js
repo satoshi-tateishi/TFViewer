@@ -31,32 +31,6 @@ function formatFrequencyLabel(hz) {
 
 const X_MAJOR_TICKTEXT = X_MAJOR_TICKVALS.map(formatFrequencyLabel);
 
-function buildYMinorTickvals() {
-  const values = [];
-  for (let db = Y_RANGE_DB[0]; db <= Y_RANGE_DB[1]; db += Y_MINOR_DTICK) {
-    values.push(Math.round(db * 100) / 100);
-  }
-  return values;
-}
-
-const Y_MINOR_TICKVALS = buildYMinorTickvals();
-
-// Plotlyのaxis.minor（バージョン依存）に頼らず、
-// Y軸の補助グリッドはshapesで直接描画することでバージョン差異を避ける。
-function buildMinorGridShapes() {
-  return Y_MINOR_TICKVALS.filter((db) => db % Y_MAJOR_DTICK !== 0).map((db) => ({
-    type: 'line',
-    xref: 'paper',
-    yref: 'y',
-    x0: 0,
-    x1: 1,
-    y0: db,
-    y1: db,
-    line: { color: GRID_COLOR_MINOR, width: 1 },
-    layer: 'below'
-  }));
-}
-
 const HOVER_TEMPLATE = '%{y:.1f} dB<extra></extra>';
 
 export function renderFrequencyResponseChart(elementId, traces, { showLegend = false } = {}) {
@@ -67,7 +41,6 @@ export function renderFrequencyResponseChart(elementId, traces, { showLegend = f
 
   const layout = {
     margin: { t: 20, r: 10, l: 30, b: 40 },
-    shapes: buildMinorGridShapes(),
     xaxis: {
       type: 'log',
       range: [Math.log10(X_RANGE_HZ[0]), Math.log10(X_RANGE_HZ[1])],
@@ -91,7 +64,13 @@ export function renderFrequencyResponseChart(elementId, traces, { showLegend = f
       gridcolor: GRID_COLOR_MAJOR,
       gridwidth: 1,
       zeroline: false,
-      showspikes: false
+      showspikes: false,
+      minor: {
+        dtick: Y_MINOR_DTICK,
+        showgrid: true,
+        gridcolor: GRID_COLOR_MINOR,
+        gridwidth: 1
+      }
     },
     showlegend: showLegend,
     legend: { orientation: 'v', x: 0, xanchor: 'left', y: -0.15, yanchor: 'top' },
