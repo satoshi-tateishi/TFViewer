@@ -4,3 +4,9 @@
 body {
   font-feature-settings: "palt";
 }
+
+/* touch-action未指定だとiOS Safariがハンドルでのタッチをネイティブスクロールと
+   解釈し、SortableJSのドラッグ開始前にジェスチャーを奪ってしまう。 */
+.drag-handle {
+  touch-action: none;
+}
