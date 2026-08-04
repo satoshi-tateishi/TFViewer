@@ -115,6 +115,9 @@ export function measurementList() {
       });
       this.renderChart();
     },
+    scrollToChart() {
+      document.getElementById('compare-chart').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
     async move(measurement, offset) {
       const index = this.measurements.findIndex((m) => m.id === measurement.id);
       const target = index + offset;
