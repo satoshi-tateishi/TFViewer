@@ -101,6 +101,20 @@ export function measurementList() {
         return true;
       });
     },
+    // フィルターで現在表示中の項目だけを対象に一括ON/OFFする。
+    // 非表示になっている項目のチェック状態には影響しない。
+    showFiltered() {
+      this.filteredMeasurements().forEach((measurement) => {
+        this.checked[measurement.id] = true;
+      });
+      this.renderChart();
+    },
+    hideFiltered() {
+      this.filteredMeasurements().forEach((measurement) => {
+        this.checked[measurement.id] = false;
+      });
+      this.renderChart();
+    },
     async move(measurement, offset) {
       const index = this.measurements.findIndex((m) => m.id === measurement.id);
       const target = index + offset;
