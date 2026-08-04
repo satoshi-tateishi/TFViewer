@@ -47,6 +47,19 @@ function splitByCoherence(rows, threshold) {
   return segments;
 }
 
+function stripExtension(fileName) {
+  return fileName.replace(/\.[^.]+$/, '');
+}
+
+// "|"区切りでORグループに分け、各グループ内はスペース区切りでAND判定する
+// 検索クエリをパースする。例: "A B|C" → (AかつB) または (C)。
+function parseSearchGroups(query) {
+  return query
+    .split('|')
+    .map((group) => group.trim().toLowerCase().split(/\s+/).filter(Boolean))
+    .filter((terms) => terms.length > 0);
+}
+
 function rowsFromSummaryJson(summaryJson) {
   if (!summaryJson || !Array.isArray(summaryJson.frequency)) return [];
   return summaryJson.frequency.map((frequency, index) => ({
@@ -150,15 +163,18 @@ export function measurementList() {
     isFiltering() {
       return this.searchQuery.trim() !== '' || this.bandFilterEnabled;
     },
-    // スペース区切りのキーワードすべてを含む項目だけを残すAND検索と、
-    // 指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す絞り込みを両方適用する。
+    // "|"区切りのORグループ、各グループ内はスペース区切りのANDで検索する
+    // （例: "A B|C" → (AかつB)またはC）。ファイル名は拡張子を除いて比較する。
+    // これと、指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す
+    // 絞り込みを両方適用する。
     filteredMeasurements() {
-      const terms = this.searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const groups = parseSearchGroups(this.searchQuery);
 
       return this.measurements.filter((measurement) => {
-        if (terms.length > 0) {
-          const haystack = `${measurement.file_name} ${measurement.measurement_name}`.toLowerCase();
-          if (!terms.every((term) => haystack.includes(term))) return false;
+        if (groups.length > 0) {
+          const haystack = `${stripExtension(measurement.file_name)} ${measurement.measurement_name}`.toLowerCase();
+          const matchesAnyGroup = groups.some((terms) => terms.every((term) => haystack.includes(term)));
+          if (!matchesAnyGroup) return false;
         }
 
         if (this.bandFilterEnabled) {
