@@ -60,7 +60,7 @@ export function measurementList() {
       try {
         this.measurements = await listMeasurements();
         this.measurements.forEach((measurement) => {
-          this.checked[measurement.id] = true;
+          this.checked[measurement.id] = false;
         });
       } catch (error) {
         console.error(error);
