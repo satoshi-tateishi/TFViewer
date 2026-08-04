@@ -194,6 +194,68 @@ export function logWeightedBandAverage(rows, lowFrequency, highFrequency) {
   return totalWeight > 0 ? weightedSum / totalWeight : inBand[0].magnitude;
 }
 
+const SUMMARY_FRACTION = 6;
+
+// 一覧表示・帯域平均フィルター用の軽量な要約データを作る。
+// フル解像度（1測定あたり1万点超）を毎回全件配信すると通信量が大きくなるため、
+// 対数周波数軸上で1/6 oct間隔に間引いた点（1測定あたり数十点）だけを保存する。
+// フル解像度データは、グラフ表示のためにチェックを入れた測定だけ別途取得する。
+export function buildSummarySeries(rows, fraction = SUMMARY_FRACTION) {
+  const sortedRows = rows
+    .filter((row) => Number.isFinite(row.frequency) && Number.isFinite(row.magnitude) && row.frequency > 0)
+    .slice()
+    .sort((a, b) => a.frequency - b.frequency);
+
+  if (sortedRows.length === 0) {
+    return { frequency: [], magnitude: [] };
+  }
+
+  const lowerRatio = Math.pow(2, -1 / (2 * fraction));
+  const upperRatio = Math.pow(2, 1 / (2 * fraction));
+  const stepRatio = Math.pow(2, 1 / fraction);
+
+  const minFrequency = sortedRows[0].frequency;
+  const maxFrequency = sortedRows[sortedRows.length - 1].frequency;
+
+  const centerFrequencies = [];
+  for (let f = minFrequency; f < maxFrequency; f *= stepRatio) {
+    centerFrequencies.push(f);
+  }
+  centerFrequencies.push(maxFrequency);
+
+  const frequency = [];
+  const magnitude = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+
+  centerFrequencies.forEach((centerFrequency) => {
+    const lowerFrequency = centerFrequency * lowerRatio;
+    const upperFrequency = centerFrequency * upperRatio;
+
+    while (leftIndex < sortedRows.length && sortedRows[leftIndex].frequency < lowerFrequency) {
+      leftIndex++;
+    }
+    if (rightIndex < leftIndex) {
+      rightIndex = leftIndex;
+    }
+    while (rightIndex < sortedRows.length && sortedRows[rightIndex].frequency <= upperFrequency) {
+      rightIndex++;
+    }
+
+    const count = rightIndex - leftIndex;
+    if (count > 0) {
+      let sum = 0;
+      for (let i = leftIndex; i < rightIndex; i++) {
+        sum += sortedRows[i].magnitude;
+      }
+      frequency.push(centerFrequency);
+      magnitude.push(sum / count);
+    }
+  });
+
+  return { frequency, magnitude };
+}
+
 // 保存用JSON。平滑化は表示側でグローバル設定に応じて都度計算するため、
 // ここではraw値のみを保持する。コヒーレンスは全点で取得できた場合のみ保存する
 // （欠けている形式・データでは閾値フィルタを適用しないため）。

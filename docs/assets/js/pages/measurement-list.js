@@ -1,5 +1,5 @@
 import { initAuthenticatedPage } from '../layout.js';
-import { listMeasurements, deleteMeasurement, updateMeasurementOrder } from '../measurements.js';
+import { listMeasurements, deleteMeasurement, updateMeasurementOrder, getMeasurementJsonData } from '../measurements.js';
 import { smoothFractionalOctave, rowsFromMeasurementJson, logWeightedBandAverage } from '../trf-parser.js';
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
 import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
@@ -41,6 +41,14 @@ function splitByCoherence(rows, threshold) {
   return segments;
 }
 
+function rowsFromSummaryJson(summaryJson) {
+  if (!summaryJson || !Array.isArray(summaryJson.frequency)) return [];
+  return summaryJson.frequency.map((frequency, index) => ({
+    frequency,
+    magnitude: summaryJson.magnitude[index]
+  }));
+}
+
 export function measurementList() {
   return {
     canDelete: false,
@@ -49,6 +57,8 @@ export function measurementList() {
     errorMessage: '',
     measurements: [],
     checked: {},
+    dataCache: {},
+    loadingIds: {},
     searchQuery: '',
     bandFilterEnabled: false,
     bandLowFreq: 125,
@@ -93,7 +103,7 @@ export function measurementList() {
         }
 
         if (this.bandFilterEnabled) {
-          const rows = rowsFromMeasurementJson(measurement.json_data);
+          const rows = rowsFromSummaryJson(measurement.summary_json);
           const average = logWeightedBandAverage(rows, this.bandLowFreq, this.bandHighFreq);
           if (average === null || average > this.bandThreshold) return false;
         }
@@ -101,11 +111,27 @@ export function measurementList() {
         return true;
       });
     },
+    // グラフ表示に必要なフル解像度データは、チェックを入れた測定だけ個別取得する。
+    // 一度取得した測定はセッション中キャッシュし、再取得しない。
+    async ensureDataLoaded(id) {
+      if (this.dataCache[id]) return;
+      this.loadingIds[id] = true;
+      try {
+        this.dataCache[id] = await getMeasurementJsonData(id);
+      } catch (error) {
+        console.error(error);
+        this.errorMessage = 'データの取得に失敗しました。';
+      } finally {
+        delete this.loadingIds[id];
+      }
+    },
     // フィルターで現在表示中の項目だけを対象に一括ON/OFFする。
     // 非表示になっている項目のチェック状態には影響しない。
-    showFiltered() {
-      this.filteredMeasurements().forEach((measurement) => {
-        this.checked[measurement.id] = true;
+    async showFiltered() {
+      const targets = this.filteredMeasurements();
+      await Promise.all(targets.map((measurement) => this.ensureDataLoaded(measurement.id)));
+      targets.forEach((measurement) => {
+        if (this.dataCache[measurement.id]) this.checked[measurement.id] = true;
       });
       this.renderChart();
     },
@@ -142,8 +168,13 @@ export function measurementList() {
       setCoherenceThreshold(this.coherenceThreshold);
       this.renderChart();
     },
-    toggle(id) {
-      this.checked[id] = !this.checked[id];
+    async toggle(id) {
+      const turningOn = !this.checked[id];
+      if (turningOn) {
+        await this.ensureDataLoaded(id);
+        if (!this.dataCache[id]) return;
+      }
+      this.checked[id] = turningOn;
       this.renderChart();
     },
     async remove(measurement) {
@@ -153,6 +184,7 @@ export function measurementList() {
         await deleteMeasurement(measurement.id, measurement.trf_path);
         this.measurements = this.measurements.filter((m) => m.id !== measurement.id);
         delete this.checked[measurement.id];
+        delete this.dataCache[measurement.id];
         this.renderChart();
       } catch (error) {
         console.error(error);
@@ -178,9 +210,11 @@ export function measurementList() {
 
       this.measurements.forEach((measurement) => {
         if (!this.checked[measurement.id]) return;
+        const jsonData = this.dataCache[measurement.id];
+        if (!jsonData) return;
 
         const color = this.colorFor(measurement);
-        const rows = rowsFromMeasurementJson(measurement.json_data);
+        const rows = rowsFromMeasurementJson(jsonData);
         // スムージングは常に全データで行い、閾値を変えても波形の形自体は変わらないようにする。
         // コヒーレンス閾値未満の区間は、線を消さずopacityを下げて視覚的に示すだけにとどめる。
         const smoothed = smoothFractionalOctave(rows, this.fraction);

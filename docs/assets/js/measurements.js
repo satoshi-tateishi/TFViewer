@@ -1,15 +1,29 @@
 import { supabase } from './supabase-client.js';
-import { parseTrfFile, buildRawMeasurementJson } from './trf-parser.js';
+import { parseTrfFile, buildRawMeasurementJson, buildSummarySeries } from './trf-parser.js';
 import { parseCsvFile } from './csv-parser.js';
 
+// 一覧表示には帯域平均フィルターに使う軽量なsummary_jsonのみを読み込む。
+// フル解像度のjson_dataは全件分だと通信量が大きいため、
+// グラフ表示のためにチェックを入れた測定だけgetMeasurementJsonDataで個別取得する。
 export async function listMeasurements() {
   const { data, error } = await supabase
     .from('measurements')
-    .select('id, file_name, measurement_name, trf_path, json_data, updated_at, sort_order')
+    .select('id, file_name, measurement_name, trf_path, summary_json, updated_at, sort_order')
     .order('sort_order', { ascending: true });
 
   if (error) throw error;
   return data;
+}
+
+export async function getMeasurementJsonData(id) {
+  const { data, error } = await supabase
+    .from('measurements')
+    .select('json_data')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data.json_data;
 }
 
 // 一覧の並び替え結果を全員共通の並び順としてDBへ保存する。
@@ -69,6 +83,7 @@ export async function importMeasurementFile(file, uploadedBy) {
   const isCsv = file.name.toLowerCase().endsWith('.csv');
   const parsed = isCsv ? await parseCsvFile(file) : await parseTrfFile(file);
   const jsonData = buildRawMeasurementJson(parsed.rows);
+  const summaryJson = buildSummarySeries(parsed.rows);
 
   const { data: existing, error: lookupError } = await supabase
     .from('measurements')
@@ -90,6 +105,7 @@ export async function importMeasurementFile(file, uploadedBy) {
           measurement_name: parsed.measurementName,
           trf_path: trfPath,
           json_data: jsonData,
+          summary_json: summaryJson,
           uploaded_by: uploadedBy
         })
         .eq('id', existing.id);
@@ -103,6 +119,7 @@ export async function importMeasurementFile(file, uploadedBy) {
           measurement_name: parsed.measurementName,
           trf_path: trfPath,
           json_data: jsonData,
+          summary_json: summaryJson,
           uploaded_by: uploadedBy,
           sort_order: await nextSortOrder()
         });
