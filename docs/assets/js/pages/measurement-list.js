@@ -9,6 +9,12 @@ import { translateError } from '../error-messages.js';
 
 const TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
+// iOS Safariはドラッグハンドルへのtouchstartを配信しないため、
+// SortableJSのドラッグ並び替えはPC/Mac相当の入力デバイスに限定する。
+// 画面幅だけで判定すると横向きiPad等の広い画面のタッチ端末も含んでしまうため、
+// hover/pointerでマウス・トラックパッド操作かどうかも合わせて見る。
+const DESKTOP_QUERY = '(min-width: 768px) and (hover: hover) and (pointer: fine)';
+
 // スムージング済みの行を、コヒーレンス閾値以上/未満の連続区間に分割する。
 // 区間の境界点は両側に含め、線が途切れずに繋がって見えるようにする。
 // coherenceを持たない行（未対応形式）は常に閾値以上として扱う。
@@ -53,6 +59,8 @@ export function measurementList() {
   return {
     canDelete: false,
     canReorder: false,
+    isDesktop: false,
+    sortableInstance: null,
     loading: true,
     errorMessage: '',
     measurements: [],
@@ -68,6 +76,13 @@ export function measurementList() {
     coherenceThreshold: getCoherenceThreshold(),
     formatUpdatedAt,
     async init() {
+      const desktopQuery = window.matchMedia(DESKTOP_QUERY);
+      this.isDesktop = desktopQuery.matches;
+      desktopQuery.addEventListener('change', (event) => {
+        this.isDesktop = event.matches;
+        this.$nextTick(() => this.syncSortable());
+      });
+
       const result = await initAuthenticatedPage();
       this.canDelete = ['Admin', 'Editor'].includes(result?.profile?.role);
       this.canReorder = ['Admin', 'Editor'].includes(result?.profile?.role);
@@ -83,7 +98,51 @@ export function measurementList() {
       } finally {
         this.loading = false;
         this.renderChart();
+        this.$nextTick(() => this.syncSortable());
       }
+    },
+    // PC/Mac相当の入力デバイスの時だけSortableJSのドラッグ並び替えを有効にする。
+    // モバイルは▲▼ボタンのみ（iOS Safariのタッチ制約のため）。
+    syncSortable() {
+      if (this.isDesktop && !this.sortableInstance) {
+        this.initSortable();
+      } else if (!this.isDesktop && this.sortableInstance) {
+        this.sortableInstance.destroy();
+        this.sortableInstance = null;
+      }
+    },
+    initSortable() {
+      const container = document.getElementById('measurement-list');
+      if (!container || typeof Sortable === 'undefined') return;
+
+      // event.oldIndex/newIndexは信用せず、ドロップ後のDOMの実並び（data-id）を
+      // 正として並び替え結果を確定させる。フィルターで一部だけ表示中だと
+      // container内の子要素数がmeasurements全体と一致しないため、その場合は
+      // 何もせず無視する（ハンドル自体もフィルター中はpointer-events-noneで
+      // 操作できないようにしてある）。
+      this.sortableInstance = new Sortable(container, {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: async () => {
+          const orderedIds = Array.from(container.children).map((el) => el.dataset.id);
+          const byId = new Map(this.measurements.map((m) => [String(m.id), m]));
+          const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+          if (reordered.length !== this.measurements.length) return;
+
+          const changed = reordered.some((m, i) => m.id !== this.measurements[i].id);
+          if (!changed) return;
+
+          this.measurements = reordered;
+          this.renderChart();
+
+          try {
+            await updateMeasurementOrder(this.measurements.map((m) => m.id));
+          } catch (error) {
+            console.error(error);
+            this.errorMessage = '並び順の保存に失敗しました。';
+          }
+        }
+      });
     },
     clearSearch() {
       this.searchQuery = '';
