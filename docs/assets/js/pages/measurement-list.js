@@ -49,6 +49,7 @@ export function measurementList() {
     errorMessage: '',
     measurements: [],
     checked: {},
+    searchQuery: '',
     fraction: getSmoothingFraction(),
     coherenceThreshold: getCoherenceThreshold(),
     formatUpdatedAt,
@@ -70,7 +71,19 @@ export function measurementList() {
         this.renderChart();
       }
     },
-    async move(index, offset) {
+    // スペース区切りのキーワードすべてを含む項目だけを残すAND検索。
+    // ファイル名・測定名の両方を対象にする。
+    filteredMeasurements() {
+      const terms = this.searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (terms.length === 0) return this.measurements;
+
+      return this.measurements.filter((measurement) => {
+        const haystack = `${measurement.file_name} ${measurement.measurement_name}`.toLowerCase();
+        return terms.every((term) => haystack.includes(term));
+      });
+    },
+    async move(measurement, offset) {
+      const index = this.measurements.findIndex((m) => m.id === measurement.id);
       const target = index + offset;
       if (target < 0 || target >= this.measurements.length) return;
 
