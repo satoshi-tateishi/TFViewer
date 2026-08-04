@@ -1,6 +1,6 @@
 import { initAuthenticatedPage } from '../layout.js';
 import { listMeasurements, deleteMeasurement, updateMeasurementOrder } from '../measurements.js';
-import { smoothFractionalOctave, rowsFromMeasurementJson } from '../trf-parser.js';
+import { smoothFractionalOctave, rowsFromMeasurementJson, logWeightedBandAverage } from '../trf-parser.js';
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
 import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
 import { renderFrequencyResponseChart } from '../frequency-chart.js';
@@ -50,6 +50,10 @@ export function measurementList() {
     measurements: [],
     checked: {},
     searchQuery: '',
+    bandFilterEnabled: false,
+    bandLowFreq: 125,
+    bandHighFreq: 4000,
+    bandThreshold: -5,
     fraction: getSmoothingFraction(),
     coherenceThreshold: getCoherenceThreshold(),
     formatUpdatedAt,
@@ -71,15 +75,30 @@ export function measurementList() {
         this.renderChart();
       }
     },
-    // スペース区切りのキーワードすべてを含む項目だけを残すAND検索。
-    // ファイル名・測定名の両方を対象にする。
+    clearSearch() {
+      this.searchQuery = '';
+    },
+    isFiltering() {
+      return this.searchQuery.trim() !== '' || this.bandFilterEnabled;
+    },
+    // スペース区切りのキーワードすべてを含む項目だけを残すAND検索と、
+    // 指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す絞り込みを両方適用する。
     filteredMeasurements() {
       const terms = this.searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      if (terms.length === 0) return this.measurements;
 
       return this.measurements.filter((measurement) => {
-        const haystack = `${measurement.file_name} ${measurement.measurement_name}`.toLowerCase();
-        return terms.every((term) => haystack.includes(term));
+        if (terms.length > 0) {
+          const haystack = `${measurement.file_name} ${measurement.measurement_name}`.toLowerCase();
+          if (!terms.every((term) => haystack.includes(term))) return false;
+        }
+
+        if (this.bandFilterEnabled) {
+          const rows = rowsFromMeasurementJson(measurement.json_data);
+          const average = logWeightedBandAverage(rows, this.bandLowFreq, this.bandHighFreq);
+          if (average === null || average > this.bandThreshold) return false;
+        }
+
+        return true;
       });
     },
     async move(measurement, offset) {

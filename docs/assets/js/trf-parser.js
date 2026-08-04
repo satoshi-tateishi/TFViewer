@@ -166,6 +166,34 @@ export function smoothFractionalOctave(rows, fraction = DEFAULT_SMOOTHING_FRACTI
   return smoothedRows;
 }
 
+// 帯域内平均をlog周波数軸上の台形積分で計算する。線形周波数間隔のデータは
+// 高域ほど点密度が高くなるため、単純な算術平均だと高域に偏った値になる。
+// 各点の重みを隣接点とのlog周波数間隔に比例させることで、点密度に依存しない
+// 帯域平均レベルを得る。
+export function logWeightedBandAverage(rows, lowFrequency, highFrequency) {
+  const inBand = rows
+    .filter((row) => Number.isFinite(row.frequency) && Number.isFinite(row.magnitude)
+      && row.frequency >= lowFrequency && row.frequency <= highFrequency)
+    .sort((a, b) => a.frequency - b.frequency);
+
+  if (inBand.length === 0) return null;
+  if (inBand.length === 1) return inBand[0].magnitude;
+
+  const logFrequencies = inBand.map((row) => Math.log(row.frequency));
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  inBand.forEach((row, index) => {
+    const prevLogFrequency = index > 0 ? logFrequencies[index - 1] : logFrequencies[index];
+    const nextLogFrequency = index < inBand.length - 1 ? logFrequencies[index + 1] : logFrequencies[index];
+    const weight = (nextLogFrequency - prevLogFrequency) / 2;
+    weightedSum += row.magnitude * weight;
+    totalWeight += weight;
+  });
+
+  return totalWeight > 0 ? weightedSum / totalWeight : inBand[0].magnitude;
+}
+
 // 保存用JSON。平滑化は表示側でグローバル設定に応じて都度計算するため、
 // ここではraw値のみを保持する。コヒーレンスは全点で取得できた場合のみ保存する
 // （欠けている形式・データでは閾値フィルタを適用しないため）。
