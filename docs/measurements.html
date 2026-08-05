@@ -191,7 +191,7 @@
       class="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center text-xl leading-none"
     >↑</button>
 
-    <div x-show="pendingDelete" class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-10">
+    <div x-show="pendingDelete" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-10">
       <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-xs space-y-3" @click.outside="cancelRemove">
         <p class="text-sm">
           <span class="font-medium break-all" x-text="pendingDelete?.file_name"></span> を削除しますか？

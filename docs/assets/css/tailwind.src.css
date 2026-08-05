@@ -5,3 +5,8 @@
 body {
   font-feature-settings: "palt";
 }
+
+/* Alpine.js初期化前のx-show要素の一瞬の表示（FOUC）を防ぐ */
+[x-cloak] {
+  display: none !important;
+}
