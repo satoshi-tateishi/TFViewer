@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TFViewer 測定一覧</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/htmx.org@2"></script>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script src="https://unpkg.com/htmx.org@2.0.10/dist/htmx.min.js" integrity="sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V" crossorigin="anonymous"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha384-DgmC6Xe2bSN2WjTDXzWYbUbxyhNP+NNkGDR/g78pCXV7E7rcVTGxVg0uIVCUUcBc" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900">
@@ -89,21 +88,34 @@
       </template>
     </div>
 
-    <div class="relative">
-      <input
-        type="text"
-        x-model="searchQuery"
-        placeholder='検索（スペース=AND、|=OR、"..."=完全一致）'
-        class="w-full border rounded px-3 py-2 pr-9 text-sm bg-white"
-      >
+    <div class="flex items-center gap-2">
+      <div class="relative flex-1">
+        <input
+          type="text"
+          x-model="searchQuery"
+          placeholder='検索（スペース=AND、|=OR、"..."=完全一致）'
+          class="w-full border rounded px-3 py-2 pr-9 text-sm bg-white"
+        >
+        <button
+          type="button"
+          x-show="searchQuery"
+          @click="clearSearch"
+          aria-label="検索クリア"
+          class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-6 h-6 flex items-center justify-center leading-none"
+        >✕</button>
+      </div>
       <button
         type="button"
-        x-show="searchQuery"
-        @click="clearSearch"
-        aria-label="検索クリア"
-        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-6 h-6 flex items-center justify-center leading-none"
-      >✕</button>
+        @click="showSearchHelp = !showSearchHelp"
+        aria-label="検索の書き方"
+        class="shrink-0 w-8 h-8 rounded-full border text-gray-500 text-xs flex items-center justify-center"
+        :class="showSearchHelp ? 'bg-gray-100' : ''"
+      >?</button>
     </div>
+    <p x-show="showSearchHelp" class="text-[10px] text-gray-500 -mt-2">
+      スペース区切り=AND（例: A B）／ <code>|</code> 区切り=OR（例: A|B）／
+      <code>"..."</code> で囲むとスペースを含む1語として扱う（例: "WS A" BU）
+    </p>
 
     <div class="bg-white rounded-lg shadow p-4 space-y-2">
       <label class="flex items-center gap-2 text-xs font-medium">
@@ -178,12 +190,24 @@
       aria-label="グラフへ戻る"
       class="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center text-xl leading-none"
     >↑</button>
+
+    <div x-show="pendingDelete" class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-10">
+      <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-xs space-y-3" @click.outside="cancelRemove">
+        <p class="text-sm">
+          <span class="font-medium break-all" x-text="pendingDelete?.file_name"></span> を削除しますか？
+        </p>
+        <div class="flex justify-end gap-2 text-sm">
+          <button type="button" @click="cancelRemove" class="px-3 py-1.5 rounded border text-gray-600">キャンセル</button>
+          <button type="button" @click="confirmRemove" class="px-3 py-1.5 rounded bg-red-600 text-white">削除</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script type="module">
     import { measurementList } from './assets/js/pages/measurement-list.js';
     window.measurementList = measurementList;
   </script>
-  <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.15.12/dist/cdn.min.js" integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L" crossorigin="anonymous"></script>
 </body>
 </html>

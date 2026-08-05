@@ -95,7 +95,9 @@ export function measurementList() {
     hiddenInChart: {},
     dataCache: {},
     loadingIds: {},
+    pendingDelete: null,
     searchQuery: '',
+    showSearchHelp: false,
     bandFilterEnabled: false,
     bandLowFreq: 125,
     bandHighFreq: 4000,
@@ -289,8 +291,16 @@ export function measurementList() {
       this.hiddenInChart[measurement.id] = !this.hiddenInChart[measurement.id];
       this.renderChart();
     },
-    async remove(measurement) {
-      if (!confirm(`${measurement.file_name} を削除しますか？`)) return;
+    remove(measurement) {
+      this.pendingDelete = measurement;
+    },
+    cancelRemove() {
+      this.pendingDelete = null;
+    },
+    async confirmRemove() {
+      const measurement = this.pendingDelete;
+      if (!measurement) return;
+      this.pendingDelete = null;
 
       try {
         await deleteMeasurement(measurement.id, measurement.trf_path);
@@ -299,9 +309,10 @@ export function measurementList() {
         delete this.hiddenInChart[measurement.id];
         delete this.dataCache[measurement.id];
         this.renderChart();
+        this.errorMessage = '';
       } catch (error) {
         console.error(error);
-        alert(translateError(error));
+        this.errorMessage = translateError(error);
       }
     },
     // 色は「現在チェックしている項目の中での順番」で割り当てる。

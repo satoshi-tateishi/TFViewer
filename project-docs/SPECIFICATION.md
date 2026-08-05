@@ -22,10 +22,12 @@
 GitHub Pages（docs/ ディレクトリを公開）
 │
 ├── HTML（マルチページ）
-├── Tailwind CSS（CDN）
-├── HTMX（共通ナビの読み込みのみに使用）
-├── Alpine.js（画面ロジック）
-└── Plotly.js（グラフ描画）
+├── Tailwind CSS（ローカルビルド。docs/assets/css/styles.cssはビルド生成物）
+├── HTMX（共通ナビの読み込みのみに使用。バージョン固定+SRI）
+├── Alpine.js（画面ロジック。バージョン固定+SRI）
+├── SortableJS（PC/Mac向けドラッグ並び替え。バージョン固定+SRI）
+├── Plotly.js（グラフ描画。バージョン固定+SRI）
+└── Supabase JS SDK（docs/assets/vendor/に自己ホスト。CDN非依存）
 
         ↓ 全てブラウザから直接アクセス
 
@@ -36,17 +38,23 @@ Supabase
 ```
 
 サーバーサイドの実装は存在しない。TRF/CSV解析・平滑化もすべてブラウザ内で行う。
-UIは**モバイル専用**（PCレイアウトは考慮しない）。
+UIは**モバイル専用**（PCレイアウトは考慮しない。ただし測定一覧はデスクトップ幅にも対応）。
+
+デプロイはビルドを介さず`docs/`をそのままGitHub Pagesが配信するため、Tailwindの
+ビルド生成物（`styles.css`）とSupabase SDKの自己ホストバンドル（`vendor/supabase-js.esm.js`）は
+リポジトリにコミットする。更新手順は`CLAUDE.md`を参照。
 
 * * *
 
 ## 3. 技術スタック
 
-- HTML5 / CSS3 / Tailwind CSS（CDN版）
-- HTMX（共通ナビ`partials/nav.html`の非同期読み込みにのみ使用）
-- Alpine.js（各ページのインタラクション）
-- Plotly.js（バージョン固定: `plotly-2.35.2.min.js`）
-- Supabase JS SDK（jsDelivr ESM経由でCDNから読み込み）
+- HTML5 / CSS3 / Tailwind CSS（Tailwind CLIでローカルビルドし`docs/assets/css/styles.css`として配信。CDN版Play CDNは廃止）
+- HTMX（共通ナビ`partials/nav.html`の非同期読み込みにのみ使用。バージョン固定+SRIハッシュ付き）
+- Alpine.js（各ページのインタラクション。バージョン固定+SRIハッシュ付き）
+- Plotly.js（バージョン固定: `plotly-2.35.2.min.js`、SRIハッシュ付き）
+- SortableJS（バージョン固定、SRIハッシュ付き）
+- Supabase JS SDK（esbuildで単一ファイルにバンドルし`docs/assets/vendor/supabase-js.esm.js`として自己ホスト。
+  ESMの`import`文はCDN経由だとSRIを付与できないため、サードパーティCDNへの依存自体を断つ方針とした）
 
 * * *
 
@@ -270,3 +278,9 @@ RLSの再帰を避けている。
 - TRFファイルはJACKREFシグネチャを検証したうえで解析
 - anon keyはクライアントに埋め込まれる前提で運用し、RLSで保護する
   （service_role相当の鍵はクライアントコードに含めない）
+- 外部CDNから読み込む`<script>`タグ（HTMX/Alpine.js/Plotly/SortableJS）はバージョンを固定し、
+  Subresource Integrity（SRI、`integrity`+`crossorigin`属性）を付与する。CDN側の改ざん・侵害があっても
+  ハッシュ不一致でスクリプトが実行されない
+- Supabase JS SDKはESM `import`文で読み込むためSRIを付与できず、CDN経由のままだと
+  セッション窃取につながるサプライチェーンリスクが残る。そのためesbuildで単一ファイルに
+  バンドルし`docs/assets/vendor/`に自己ホストすることで、サードパーティCDNへの実行時依存を断っている

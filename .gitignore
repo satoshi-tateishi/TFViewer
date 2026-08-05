@@ -3,3 +3,4 @@
 sample/
 .playwright-mcp/
 test-account.json
+node_modules/

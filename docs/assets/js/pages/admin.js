@@ -37,9 +37,10 @@ export function adminUsers() {
       try {
         await updateUserRole(user.id, role);
         user.role = role;
+        this.errorMessage = '';
       } catch (error) {
         console.error(error);
-        alert(translateError(error));
+        this.errorMessage = translateError(error);
       } finally {
         delete this.savingIds[user.id];
       }
@@ -50,9 +51,10 @@ export function adminUsers() {
       try {
         await setUserDisabled(user.id, next);
         user.disabled = next;
+        this.errorMessage = '';
       } catch (error) {
         console.error(error);
-        alert(translateError(error));
+        this.errorMessage = translateError(error);
       } finally {
         delete this.savingIds[user.id];
       }
