@@ -6,7 +6,7 @@
 // - Frequency: Float32 Little Endian
 // - Magnitude/Real/Imaginary/Coherence: Float64 Little Endian
 
-export const DEFAULT_SMOOTHING_FRACTION = 6;
+export const DEFAULT_SMOOTHING_FRACTION = 3;
 
 const SIGNATURE = 'JACKREF!';
 const SIGNATURE_OFFSET = 0;
