@@ -108,8 +108,9 @@
     <div class="flex items-center justify-between text-xs">
       <span class="text-gray-500" x-text="`${filteredMeasurements().length}/${measurements.length}件表示中`"></span>
       <div class="flex gap-3">
-        <button type="button" @click="showFiltered" class="text-blue-600">すべて表示</button>
-        <button type="button" @click="hideFiltered" class="text-blue-600">すべて非表示</button>
+        <button type="button" @click="showFiltered" class="text-blue-600" x-text="isFiltering() ? '検索結果を表示' : 'すべて表示'"></button>
+        <button type="button" x-show="isFiltering()" @click="hideFiltered" class="text-blue-600">検索結果を非表示</button>
+        <button type="button" @click="hideAll" class="text-blue-600">すべて非表示</button>
       </div>
     </div>
 

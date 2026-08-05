@@ -230,6 +230,14 @@ export function measurementList() {
       });
       this.renderChart();
     },
+    // 絞り込み中かどうかに関わらず、グラフに表示中のデータを常に一括クリアできる
+    // 導線として、フィルター状態を無視して全項目を対象にする。
+    hideAll() {
+      this.measurements.forEach((measurement) => {
+        this.checked[measurement.id] = false;
+      });
+      this.renderChart();
+    },
     scrollToChart() {
       document.getElementById('compare-chart').scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
