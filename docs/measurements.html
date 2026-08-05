@@ -48,8 +48,19 @@
 
     <div class="md:flex md:gap-2">
       <div class="hidden md:flex md:flex-col md:w-48 md:shrink-0 md:h-[420px] bg-white rounded-lg shadow p-2 gap-1 overflow-y-auto">
+        <button
+          type="button"
+          x-show="checkedMeasurements().length > 0"
+          @click="toggleDimAll()"
+          class="sticky top-0 bg-white text-left text-[10px] text-blue-600 pb-1 mb-1 border-b shrink-0"
+          x-text="allDimmed() ? 'すべて表示' : 'すべてグレーに'"
+        ></button>
         <template x-for="measurement in checkedMeasurements()" :key="measurement.id">
-          <div class="flex items-center gap-2 text-xs">
+          <div
+            class="flex items-center gap-2 text-xs cursor-pointer select-none"
+            :class="hiddenInChart[measurement.id] ? 'opacity-40 grayscale' : ''"
+            @click="toggleChartVisibility(measurement)"
+          >
             <span class="w-3 h-3 rounded-full shrink-0" :style="swatchStyle(measurement)"></span>
             <span class="truncate" x-text="measurement.file_name"></span>
           </div>
@@ -60,8 +71,18 @@
     </div>
 
     <div x-show="checkedMeasurements().length > 0" class="md:hidden flex flex-wrap gap-x-3 gap-y-1 bg-white rounded-lg shadow p-2">
+      <button
+        type="button"
+        @click="toggleDimAll()"
+        class="basis-full text-left text-[10px] text-blue-600"
+        x-text="allDimmed() ? 'すべて表示' : 'すべてグレーに'"
+      ></button>
       <template x-for="measurement in checkedMeasurements()" :key="measurement.id">
-        <div class="flex items-center gap-1.5 text-xs max-w-full">
+        <div
+          class="flex items-center gap-1.5 text-xs max-w-full cursor-pointer select-none"
+          :class="hiddenInChart[measurement.id] ? 'opacity-40 grayscale' : ''"
+          @click="toggleChartVisibility(measurement)"
+        >
           <span class="w-3 h-3 rounded-full shrink-0" :style="swatchStyle(measurement)"></span>
           <span class="truncate" x-text="measurement.file_name"></span>
         </div>

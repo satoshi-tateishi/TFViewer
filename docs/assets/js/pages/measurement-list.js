@@ -92,6 +92,7 @@ export function measurementList() {
     errorMessage: '',
     measurements: [],
     checked: {},
+    hiddenInChart: {},
     dataCache: {},
     loadingIds: {},
     searchQuery: '',
@@ -227,6 +228,7 @@ export function measurementList() {
     hideFiltered() {
       this.filteredMeasurements().forEach((measurement) => {
         this.checked[measurement.id] = false;
+        delete this.hiddenInChart[measurement.id];
       });
       this.renderChart();
     },
@@ -235,6 +237,7 @@ export function measurementList() {
     hideAll() {
       this.measurements.forEach((measurement) => {
         this.checked[measurement.id] = false;
+        delete this.hiddenInChart[measurement.id];
       });
       this.renderChart();
     },
@@ -270,8 +273,20 @@ export function measurementList() {
       if (turningOn) {
         await this.ensureDataLoaded(id);
         if (!this.dataCache[id]) return;
+      } else {
+        // 次にチェックし直したときに、前回グラフ上だけで一時非表示にしていた
+        // 状態を持ち越さず、必ず表示された状態から始まるようにする。
+        delete this.hiddenInChart[id];
       }
       this.checked[id] = turningOn;
+      this.renderChart();
+    },
+    // 凡例をクリックすると、チェック状態（一覧側の選択）はそのままに、
+    // グラフ上の該当データだけ一時的に薄いグレー表示へ切り替える。
+    // 一覧の項目数が多いと該当チェックボックスを探すのが手間なため、
+    // グラフを見ながら凡例側で素早くON/OFFできるようにする。
+    toggleChartVisibility(measurement) {
+      this.hiddenInChart[measurement.id] = !this.hiddenInChart[measurement.id];
       this.renderChart();
     },
     async remove(measurement) {
@@ -281,6 +296,7 @@ export function measurementList() {
         await deleteMeasurement(measurement.id, measurement.trf_path);
         this.measurements = this.measurements.filter((m) => m.id !== measurement.id);
         delete this.checked[measurement.id];
+        delete this.hiddenInChart[measurement.id];
         delete this.dataCache[measurement.id];
         this.renderChart();
       } catch (error) {
@@ -308,6 +324,24 @@ export function measurementList() {
     checkedMeasurements() {
       return this.measurements.filter((m) => this.checked[m.id]);
     },
+    // 凡例先頭の一括トグル用。表示中の全項目が既に一時非表示なら「すべて表示」に、
+    // そうでなければ「すべて薄く」にラベルを切り替える（表示中の測定が0件のときは
+    // ボタン自体を隠すのでfalseで問題ない）。
+    allDimmed() {
+      const targets = this.checkedMeasurements();
+      return targets.length > 0 && targets.every((m) => this.hiddenInChart[m.id]);
+    },
+    toggleDimAll() {
+      const dimNext = !this.allDimmed();
+      this.checkedMeasurements().forEach((measurement) => {
+        if (dimNext) {
+          this.hiddenInChart[measurement.id] = true;
+        } else {
+          delete this.hiddenInChart[measurement.id];
+        }
+      });
+      this.renderChart();
+    },
     renderChart() {
       const traces = [];
 
@@ -316,7 +350,8 @@ export function measurementList() {
         const jsonData = this.dataCache[measurement.id];
         if (!jsonData) return;
 
-        const color = this.colorFor(measurement);
+        const isDimmed = this.hiddenInChart[measurement.id];
+        const color = isDimmed ? '#d1d5db' : this.colorFor(measurement);
         const rows = rowsFromMeasurementJson(jsonData);
         // スムージングは常に全データで行い、閾値を変えても波形の形自体は変わらないようにする。
         // コヒーレンス閾値未満の区間は、線を消さずopacityを下げて視覚的に示すだけにとどめる。
@@ -334,7 +369,7 @@ export function measurementList() {
             name: measurement.file_name,
             legendgroup: measurement.file_name,
             showlegend: segmentIndex === 0,
-            opacity: segment.isLowCoherence ? 0.25 : 1,
+            opacity: isDimmed ? 0.25 : (segment.isLowCoherence ? 0.25 : 1),
             hoverinfo: 'skip',
             line: { width: 2, color }
           });
