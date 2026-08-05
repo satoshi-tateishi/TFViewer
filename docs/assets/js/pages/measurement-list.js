@@ -51,6 +51,13 @@ function stripExtension(fileName) {
   return fileName.replace(/\.[^.]+$/, '');
 }
 
+// スマホのキーボード（自動置換）で入力される、直立ダブルクォート"に似た
+// 引用符類似文字を通常の"に正規化する。
+// 例: “ ” ＂ → "
+function normalizeQuotes(text) {
+  return text.replace(/[“”＂]/g, '"');
+}
+
 // ダブルクォートで囲んだ部分はスペースを含む1つのフレーズとして扱い、
 // それ以外はスペース区切りの単語ごとに分割する。
 // 例: `"WS A" BU` → ["ws a", "bu"]
@@ -68,7 +75,7 @@ function tokenizeAndTerms(group) {
 // "|"区切りでORグループに分け、各グループ内はスペース区切りでAND判定する
 // 検索クエリをパースする。例: "A B|C" → (AかつB) または (C)。
 function parseSearchGroups(query) {
-  return query
+  return normalizeQuotes(query)
     .split('|')
     .map((group) => tokenizeAndTerms(group))
     .filter((terms) => terms.length > 0);
