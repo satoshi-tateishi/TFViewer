@@ -29,7 +29,7 @@ export async function getCurrentProfile() {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('role, display_name')
+    .select('role, display_name, disabled')
     .eq('id', session.user.id)
     .single();
 

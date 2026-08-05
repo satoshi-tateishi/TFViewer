@@ -10,7 +10,7 @@
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center">
 
-  <main class="w-full max-w-sm bg-white rounded-lg shadow p-8" x-data="loginForm()">
+  <main class="w-full max-w-sm bg-white rounded-lg shadow p-8" x-data="loginForm()" x-init="init()">
     <h1 class="text-xl font-bold mb-6 text-center">TFViewer</h1>
 
     <form class="space-y-4" @submit.prevent="submit">

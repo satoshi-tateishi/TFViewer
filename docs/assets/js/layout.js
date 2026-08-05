@@ -20,6 +20,11 @@ export async function initAuthenticatedPage() {
   if (!session) return null;
 
   const profile = await getCurrentProfile();
+  if (profile?.disabled) {
+    await logout();
+    window.location.href = './index.html?reason=disabled';
+    return null;
+  }
   latestSession = session;
   latestProfile = profile;
   renderNavUserInfo(session, profile);
@@ -46,5 +51,10 @@ function renderNavUserInfo(session, profile) {
     const canUpload = ['Admin', 'Editor'].includes(profile.role);
     uploadLink.classList.toggle('opacity-30', !canUpload);
     uploadLink.classList.toggle('pointer-events-none', !canUpload);
+  }
+
+  const adminLink = document.getElementById('nav-admin-link');
+  if (adminLink) {
+    adminLink.classList.toggle('hidden', profile.role !== 'Admin');
   }
 }

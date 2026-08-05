@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFViewer 設定</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@2"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+
+  <div id="nav-placeholder" hx-get="partials/nav.html" hx-trigger="load" hx-swap="innerHTML"></div>
+
+  <main class="max-w-md md:max-w-2xl mx-auto px-4 py-6 space-y-4" x-data="adminUsers()" x-init="init()">
+    <h1 class="text-xl font-bold">設定</h1>
+    <p class="text-sm text-gray-600">
+      登録ユーザーの一覧・権限変更・無効化ができます。ユーザーの削除はSupabaseダッシュボードから行ってください。
+    </p>
+
+    <p x-show="loading" class="text-sm text-gray-500">読み込み中...</p>
+    <p x-show="errorMessage" x-text="errorMessage" class="text-sm text-red-600"></p>
+
+    <div class="space-y-2">
+      <template x-for="user in users" :key="user.id">
+        <div class="bg-white rounded-lg shadow p-3 flex items-center gap-3 flex-wrap" :class="user.disabled ? 'opacity-50' : ''">
+          <div class="flex-1 min-w-0 basis-full sm:basis-auto">
+            <div class="font-medium truncate" x-text="user.email"></div>
+            <div class="text-xs text-gray-500 truncate" x-show="user.display_name" x-text="user.display_name"></div>
+            <div class="flex items-center gap-2 mt-1">
+              <span x-show="user.id === currentUserId" class="text-[10px] text-gray-400">自分自身</span>
+              <span x-show="user.disabled" class="text-[10px] text-red-600 font-medium">無効化済み</span>
+            </div>
+          </div>
+
+          <select
+            :value="user.role"
+            @change="changeRole(user, $event.target.value)"
+            :disabled="user.id === currentUserId || !!savingIds[user.id]"
+            class="border rounded px-2 py-1 text-sm disabled:opacity-50 shrink-0"
+          >
+            <option value="Admin">Admin</option>
+            <option value="Editor">Editor</option>
+            <option value="Viewer">Viewer</option>
+          </select>
+
+          <button
+            type="button"
+            @click="toggleDisabled(user)"
+            :disabled="user.id === currentUserId || !!savingIds[user.id]"
+            class="text-xs shrink-0 px-2 py-1 rounded border disabled:opacity-30 disabled:cursor-not-allowed"
+            :class="user.disabled ? 'text-green-700 border-green-300 hover:bg-green-50' : 'text-red-600 border-red-300 hover:bg-red-50'"
+          >
+            <span x-text="user.disabled ? '有効化' : '無効化'"></span>
+          </button>
+        </div>
+      </template>
+    </div>
+    <p x-show="!loading && users.length === 0" class="text-sm text-gray-500 text-center py-4">
+      ユーザーが登録されていません。
+    </p>
+  </main>
+
+  <script type="module">
+    import { adminUsers } from './assets/js/pages/admin.js';
+    window.adminUsers = adminUsers;
+  </script>
+  <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
+</body>
+</html>

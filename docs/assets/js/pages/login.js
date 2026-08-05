@@ -4,6 +4,11 @@ export function loginForm() {
     password: '',
     loading: false,
     errorMessage: '',
+    init() {
+      if (new URLSearchParams(window.location.search).get('reason') === 'disabled') {
+        this.errorMessage = 'このアカウントは無効化されています。管理者にお問い合わせください。';
+      }
+    },
     async submit() {
       this.loading = true;
       this.errorMessage = '';
