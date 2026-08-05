@@ -294,6 +294,12 @@ export function measurementList() {
     swatchStyle(measurement) {
       return `background-color: ${this.colorFor(measurement)}`;
     },
+    // グラフ左の凡例パネル用。現在チェックしている測定のみ、一覧の並び順で返す
+    // （色は表示順ではなくcolorFor内のcheckedIds順で決まるため、凡例の並びと
+    // グラフ上のトレース順は一致するとは限らないが、色自体は一致する）。
+    checkedMeasurements() {
+      return this.measurements.filter((m) => this.checked[m.id]);
+    },
     renderChart() {
       const traces = [];
 
