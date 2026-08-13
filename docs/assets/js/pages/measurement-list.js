@@ -51,6 +51,23 @@ function stripExtension(fileName) {
   return fileName.replace(/\.[^.]+$/, '');
 }
 
+// マイク位置 "WS A"/"WA A" 〜 "WS G"/"WA G" をチェックボックスで絞り込むための定義。
+const LETTER_FILTER_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+const LETTER_FILTER_PREFIXES = ['WS', 'WA'];
+
+// 選択中の文字から検索語を作る。例: ['A','B'] → ["ws a","wa a","ws b","wa b"]
+// （haystackと同じく小文字で比較する）
+function letterFilterTerms(letters) {
+  return letters.flatMap((letter) =>
+    LETTER_FILTER_PREFIXES.map((prefix) => `${prefix} ${letter}`.toLowerCase())
+  );
+}
+
+// 検索・絞り込みの比較対象。ファイル名は拡張子を除き、測定名と連結して小文字化する。
+function searchHaystack(measurement) {
+  return `${stripExtension(measurement.file_name)} ${measurement.measurement_name}`.toLowerCase();
+}
+
 // スマホのキーボード（自動置換）で入力される、直立ダブルクォート"に似た
 // 引用符類似文字を通常の"に正規化する。
 // 例: “ ” ＂ → "
@@ -104,6 +121,8 @@ export function measurementList() {
     loadingIds: {},
     pendingDelete: null,
     searchQuery: '',
+    letters: LETTER_FILTER_LETTERS,
+    letterFilters: [],
     showSearchHelp: false,
     bandFilterEnabled: false,
     bandLowFreq: 125,
@@ -184,21 +203,63 @@ export function measurementList() {
     clearSearch() {
       this.searchQuery = '';
     },
+    measurementsForLetters(letters) {
+      const terms = letterFilterTerms(letters);
+      if (terms.length === 0) return [];
+      return this.measurements.filter((measurement) => {
+        const haystack = searchHaystack(measurement);
+        return terms.some((term) => haystack.includes(term));
+      });
+    },
+    // A〜Gのチェックは一覧の絞り込みとグラフ表示を連動させる。ONにするとその文字の
+    // 全件（テキスト検索や帯域フィルターの絞り込み状態には左右されない）をグラフに
+    // 表示し、OFFにすると同じ全件をグラフから外す。
+    // ただしOFF時、他にチェック中の文字にも該当する項目はグラフに残す。
+    async toggleLetter(letter) {
+      const turningOn = !this.letterFilters.includes(letter);
+      this.letterFilters = turningOn
+        ? [...this.letterFilters, letter]
+        : this.letterFilters.filter((selected) => selected !== letter);
+
+      if (turningOn) {
+        const targets = this.measurementsForLetters([letter]);
+        await Promise.all(targets.map((measurement) => this.ensureDataLoaded(measurement.id)));
+        targets.forEach((measurement) => {
+          if (this.dataCache[measurement.id]) this.checked[measurement.id] = true;
+        });
+      } else {
+        const keepIds = new Set(this.measurementsForLetters(this.letterFilters).map((m) => m.id));
+        this.measurementsForLetters([letter]).forEach((measurement) => {
+          if (keepIds.has(measurement.id)) return;
+          this.checked[measurement.id] = false;
+          delete this.hiddenInChart[measurement.id];
+        });
+      }
+      this.renderChart();
+    },
     isFiltering() {
-      return this.searchQuery.trim() !== '' || this.bandFilterEnabled;
+      return this.searchQuery.trim() !== '' || this.letterFilters.length > 0 || this.bandFilterEnabled;
     },
     // "|"区切りのORグループ、各グループ内はスペース区切りのANDで検索する
     // （例: "A B|C" → (AかつB)またはC）。ファイル名は拡張子を除いて比較する。
-    // これと、指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す
-    // 絞り込みを両方適用する。
+    // A〜Gのチェックボックスはチェックした分をORで判定し（例: A,B → "WS A"/"WA A"/
+    // "WS B"/"WA B"のいずれか）、テキスト検索とはANDで合成する。
+    // さらに、指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す
+    // 絞り込みもANDで適用する。
     filteredMeasurements() {
       const groups = parseSearchGroups(this.searchQuery);
+      const letterTerms = letterFilterTerms(this.letterFilters);
 
       return this.measurements.filter((measurement) => {
-        if (groups.length > 0) {
-          const haystack = `${stripExtension(measurement.file_name)} ${measurement.measurement_name}`.toLowerCase();
-          const matchesAnyGroup = groups.some((terms) => terms.every((term) => haystack.includes(term)));
-          if (!matchesAnyGroup) return false;
+        if (groups.length > 0 || letterTerms.length > 0) {
+          const haystack = searchHaystack(measurement);
+
+          if (letterTerms.length > 0 && !letterTerms.some((term) => haystack.includes(term))) return false;
+
+          if (groups.length > 0) {
+            const matchesAnyGroup = groups.some((terms) => terms.every((term) => haystack.includes(term)));
+            if (!matchesAnyGroup) return false;
+          }
         }
 
         if (this.bandFilterEnabled) {

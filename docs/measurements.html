@@ -88,6 +88,22 @@
       </template>
     </div>
 
+    <div class="bg-white rounded-lg shadow p-3">
+      <div class="flex flex-wrap gap-x-4 gap-y-2">
+        <template x-for="letter in letters" :key="letter">
+          <label class="flex items-center gap-1.5 text-xs font-medium">
+            <input
+              type="checkbox"
+              :checked="letterFilters.includes(letter)"
+              @change="toggleLetter(letter)"
+              class="w-4 h-4 shrink-0"
+            >
+            <span x-text="letter"></span>
+          </label>
+        </template>
+      </div>
+    </div>
+
     <div class="flex items-center gap-2">
       <div class="relative flex-1">
         <input
