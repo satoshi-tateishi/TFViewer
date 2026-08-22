@@ -37,6 +37,20 @@ export async function updateMeasurementOrder(orderedIds) {
   if (failed) throw failed.error;
 }
 
+// インポート済み測定の一覧メタデータだけを更新する。
+// 元データとStorage上のファイルは変更しない。
+export async function updateMeasurementMetadata(id, fileName, measurementName) {
+  const { data, error } = await supabase
+    .from('measurements')
+    .update({ file_name: fileName, measurement_name: measurementName })
+    .eq('id', id)
+    .select('file_name, measurement_name, updated_at')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 async function nextSortOrder() {
   const { data, error } = await supabase
     .from('measurements')

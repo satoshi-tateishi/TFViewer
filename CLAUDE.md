@@ -11,6 +11,8 @@
 - ローカルでサーバーを立てて動作確認する
 - 変更をpushし、公開されたページ（GitHub Pages）で動作確認する
 
+ローカルの開発サーバーは毎回ポート`8765`で起動すること（例: `python3 -m http.server 8765 --directory docs`）。
+
 ## テストアカウント
 
 動作確認用のログイン情報はリポジトリ直下の`test-account.json`（gitignore済み、非公開）を参照。

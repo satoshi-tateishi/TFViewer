@@ -1,5 +1,11 @@
 import { initAuthenticatedPage } from '../layout.js';
-import { listMeasurements, deleteMeasurement, updateMeasurementOrder, getMeasurementJsonData } from '../measurements.js';
+import {
+  listMeasurements,
+  deleteMeasurement,
+  updateMeasurementOrder,
+  updateMeasurementMetadata,
+  getMeasurementJsonData
+} from '../measurements.js';
 import { smoothFractionalOctave, rowsFromMeasurementJson, logWeightedBandAverage } from '../trf-parser.js';
 import { getSmoothingFraction, setSmoothingFraction } from '../smoothing-setting.js';
 import { getCoherenceThreshold, setCoherenceThreshold } from '../coherence-setting.js';
@@ -51,16 +57,32 @@ function stripExtension(fileName) {
   return fileName.replace(/\.[^.]+$/, '');
 }
 
-// マイク位置 "WS A"/"WA A" 〜 "WS G"/"WA G" をチェックボックスで絞り込むための定義。
+// ファイル名の先頭文字A〜Gをチェックボックスで絞り込むための定義。
 const LETTER_FILTER_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-const LETTER_FILTER_PREFIXES = ['WS', 'WA'];
 
-// 選択中の文字から検索語を作る。例: ['A','B'] → ["ws a","wa a","ws b","wa b"]
-// （haystackと同じく小文字で比較する）
-function letterFilterTerms(letters) {
-  return letters.flatMap((letter) =>
-    LETTER_FILTER_PREFIXES.map((prefix) => `${prefix} ${letter}`.toLowerCase())
-  );
+// 新しい命名規則ではファイル名の1文字目がマイク位置を表す。
+// 小文字で始まるファイルも同じ位置として扱えるよう、大文字化して比較する。
+function matchesLetterFilter(measurement, letters) {
+  if (letters.length === 0) return true;
+  return letters.includes(measurement.file_name.charAt(0).toUpperCase());
+}
+
+// 例: A_AL_M.csv → { name: 'A_AL', type: 'M' }
+// ファイル名末尾の_M/_Bだけを種別として扱い、それ以外のファイルは集計表に含めない。
+function parseLetterSummaryFileName(fileName) {
+  const match = stripExtension(fileName).match(/^(.+)_([MB])$/i);
+  if (!match) return null;
+  return { name: match[1], type: match[2].toUpperCase() };
+}
+
+function fitCanvasText(context, text, maxWidth) {
+  if (context.measureText(text).width <= maxWidth) return text;
+
+  let fitted = text;
+  while (fitted.length > 0 && context.measureText(`${fitted}…`).width > maxWidth) {
+    fitted = fitted.slice(0, -1);
+  }
+  return `${fitted}…`;
 }
 
 // 検索・絞り込みの比較対象。ファイル名は拡張子を除き、測定名と連結して小文字化する。
@@ -108,6 +130,7 @@ function rowsFromSummaryJson(summaryJson) {
 
 export function measurementList() {
   return {
+    canEdit: false,
     canDelete: false,
     canReorder: false,
     isDesktop: false,
@@ -120,6 +143,12 @@ export function measurementList() {
     dataCache: {},
     loadingIds: {},
     pendingDelete: null,
+    editingMeasurement: null,
+    editFileName: '',
+    editMeasurementName: '',
+    editErrorMessage: '',
+    savingEdit: false,
+    downloadingSummaryJpeg: false,
     searchQuery: '',
     letters: LETTER_FILTER_LETTERS,
     letterFilters: [],
@@ -140,6 +169,7 @@ export function measurementList() {
       });
 
       const result = await initAuthenticatedPage();
+      this.canEdit = ['Admin', 'Editor'].includes(result?.profile?.role);
       this.canDelete = ['Admin', 'Editor'].includes(result?.profile?.role);
       this.canReorder = ['Admin', 'Editor'].includes(result?.profile?.role);
 
@@ -204,15 +234,159 @@ export function measurementList() {
       this.searchQuery = '';
     },
     measurementsForLetters(letters) {
-      const terms = letterFilterTerms(letters);
-      if (terms.length === 0) return [];
-      return this.measurements.filter((measurement) => {
-        const haystack = searchHaystack(measurement);
-        return terms.some((term) => haystack.includes(term));
-      });
+      if (letters.length === 0) return [];
+      return this.measurements.filter((measurement) => matchesLetterFilter(measurement, letters));
     },
-    // A〜Gのチェックは一覧の絞り込みとグラフ表示を連動させる。ONにするとその文字の
-    // 全件（テキスト検索や帯域フィルターの絞り込み状態には左右されない）をグラフに
+    // 選択中のA〜Gに該当する測定を、ファイル名末尾の_M/_Bを除いた名前で1行にまとめる。
+    // 一覧取得時に含まれるsummary_jsonを使うため、フル解像度データの追加取得は不要。
+    letterSummaryRowsFor(letters) {
+      const rowsByName = new Map();
+
+      this.measurementsForLetters(letters).forEach((measurement) => {
+        const parsed = parseLetterSummaryFileName(measurement.file_name);
+        if (!parsed) return;
+
+        if (!rowsByName.has(parsed.name)) {
+          rowsByName.set(parsed.name, { name: parsed.name, M: null, B: null });
+        }
+
+        const rows = rowsFromSummaryJson(measurement.summary_json);
+        rowsByName.get(parsed.name)[parsed.type] = logWeightedBandAverage(rows, 125, 4000);
+      });
+
+      return Array.from(rowsByName.values());
+    },
+    letterSummaryRows() {
+      return this.letterSummaryRowsFor(this.letterFilters);
+    },
+    formatLetterSummaryAverage(value) {
+      if (value === null) return '—';
+      const roundedValue = Math.abs(value) < 0.05 ? 0 : value;
+      return `${roundedValue.toFixed(1)} dB`;
+    },
+    async downloadAllLetterSummaryJpeg() {
+      if (this.downloadingSummaryJpeg) return;
+      this.downloadingSummaryJpeg = true;
+
+      try {
+        const sections = this.letters.map((letter) => ({
+          letter,
+          rows: this.letterSummaryRowsFor([letter])
+        }));
+        const canvas = document.createElement('canvas');
+        const width = 1200;
+        const padding = 60;
+        const titleHeight = 110;
+        const tableHeaderHeight = 58;
+        const sectionHeight = 48;
+        const rowHeight = 52;
+        const totalBodyHeight = sections.reduce(
+          (height, section) => height + sectionHeight + rowHeight * Math.max(section.rows.length, 1),
+          0
+        );
+        canvas.width = width;
+        canvas.height = padding * 2 + titleHeight + tableHeaderHeight + totalBodyHeight;
+
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('画像の生成に失敗しました。');
+
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.textBaseline = 'middle';
+        context.fillStyle = '#111827';
+        context.font = 'bold 34px sans-serif';
+        context.fillText('A–G 帯域平均', padding, padding + 28);
+        context.fillStyle = '#6b7280';
+        context.font = '22px sans-serif';
+        context.fillText('125–4000 Hz', padding, padding + 72);
+
+        const tableWidth = width - padding * 2;
+        const nameWidth = 650;
+        const valueWidth = (tableWidth - nameWidth) / 2;
+        let y = padding + titleHeight;
+
+        context.fillStyle = '#1f2937';
+        context.fillRect(padding, y, tableWidth, tableHeaderHeight);
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 22px sans-serif';
+        context.textAlign = 'left';
+        context.fillText('name', padding + 20, y + tableHeaderHeight / 2);
+        context.textAlign = 'right';
+        context.fillText('M', padding + nameWidth + valueWidth - 20, y + tableHeaderHeight / 2);
+        context.fillText('B', width - padding - 20, y + tableHeaderHeight / 2);
+        y += tableHeaderHeight;
+
+        sections.forEach((section) => {
+          context.fillStyle = '#dbeafe';
+          context.fillRect(padding, y, tableWidth, sectionHeight);
+          context.fillStyle = '#1e3a8a';
+          context.font = 'bold 22px sans-serif';
+          context.textAlign = 'left';
+          context.fillText(section.letter, padding + 20, y + sectionHeight / 2);
+          y += sectionHeight;
+
+          const rows = section.rows.length > 0
+            ? section.rows
+            : [{ name: '該当データなし', M: null, B: null, empty: true }];
+          rows.forEach((row, index) => {
+            context.fillStyle = index % 2 === 0 ? '#ffffff' : '#f9fafb';
+            context.fillRect(padding, y, tableWidth, rowHeight);
+            context.strokeStyle = '#e5e7eb';
+            context.beginPath();
+            context.moveTo(padding, y + rowHeight);
+            context.lineTo(width - padding, y + rowHeight);
+            context.stroke();
+
+            context.fillStyle = row.empty ? '#9ca3af' : '#111827';
+            context.font = '21px sans-serif';
+            context.textAlign = 'left';
+            context.fillText(
+              fitCanvasText(context, row.name, nameWidth - 40),
+              padding + 20,
+              y + rowHeight / 2
+            );
+            context.textAlign = 'right';
+            context.fillText(
+              row.empty ? '—' : this.formatLetterSummaryAverage(row.M),
+              padding + nameWidth + valueWidth - 20,
+              y + rowHeight / 2
+            );
+            context.fillText(
+              row.empty ? '—' : this.formatLetterSummaryAverage(row.B),
+              width - padding - 20,
+              y + rowHeight / 2
+            );
+            y += rowHeight;
+          });
+        });
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        if (!blob) throw new Error('画像の生成に失敗しました。');
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const now = new Date();
+        const date = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, '0'),
+          String(now.getDate()).padStart(2, '0')
+        ].join('');
+        link.href = url;
+        link.download = `tfviewer-band-average-A-G-${date}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.errorMessage = '';
+      } catch (error) {
+        console.error(error);
+        this.errorMessage = error?.message || '画像の生成に失敗しました。';
+      } finally {
+        this.downloadingSummaryJpeg = false;
+      }
+    },
+    // A〜Gのチェックは一覧の絞り込みとグラフ表示を連動させる。ONにするとファイル名の
+    // 先頭がその文字である全件（テキスト検索や帯域フィルターの絞り込み状態には左右されない）をグラフに
     // 表示し、OFFにすると同じ全件をグラフから外す。
     // ただしOFF時、他にチェック中の文字にも該当する項目はグラフに残す。
     async toggleLetter(letter) {
@@ -242,24 +416,21 @@ export function measurementList() {
     },
     // "|"区切りのORグループ、各グループ内はスペース区切りのANDで検索する
     // （例: "A B|C" → (AかつB)またはC）。ファイル名は拡張子を除いて比較する。
-    // A〜Gのチェックボックスはチェックした分をORで判定し（例: A,B → "WS A"/"WA A"/
-    // "WS B"/"WA B"のいずれか）、テキスト検索とはANDで合成する。
+    // A〜Gのチェックボックスは、ファイル名の先頭文字がチェックした文字のいずれかなら
+    // 一致と判定し（例: A,B → 先頭がAまたはB）、テキスト検索とはANDで合成する。
     // さらに、指定帯域の対数周波数重み付け平均が閾値以下の項目のみを残す
     // 絞り込みもANDで適用する。
     filteredMeasurements() {
       const groups = parseSearchGroups(this.searchQuery);
-      const letterTerms = letterFilterTerms(this.letterFilters);
+      const hasLetterFilter = this.letterFilters.length > 0;
 
       return this.measurements.filter((measurement) => {
-        if (groups.length > 0 || letterTerms.length > 0) {
+        if (hasLetterFilter && !matchesLetterFilter(measurement, this.letterFilters)) return false;
+
+        if (groups.length > 0) {
           const haystack = searchHaystack(measurement);
-
-          if (letterTerms.length > 0 && !letterTerms.some((term) => haystack.includes(term))) return false;
-
-          if (groups.length > 0) {
-            const matchesAnyGroup = groups.some((terms) => terms.every((term) => haystack.includes(term)));
-            if (!matchesAnyGroup) return false;
-          }
+          const matchesAnyGroup = groups.some((terms) => terms.every((term) => haystack.includes(term)));
+          if (!matchesAnyGroup) return false;
         }
 
         if (this.bandFilterEnabled) {
@@ -358,6 +529,47 @@ export function measurementList() {
     toggleChartVisibility(measurement) {
       this.hiddenInChart[measurement.id] = !this.hiddenInChart[measurement.id];
       this.renderChart();
+    },
+    startEdit(measurement) {
+      if (!this.canEdit) return;
+      this.editingMeasurement = measurement;
+      this.editFileName = measurement.file_name;
+      this.editMeasurementName = measurement.measurement_name;
+      this.editErrorMessage = '';
+    },
+    cancelEdit() {
+      if (this.savingEdit) return;
+      this.editingMeasurement = null;
+      this.editErrorMessage = '';
+    },
+    async saveEdit() {
+      if (!this.editingMeasurement || !this.canEdit || this.savingEdit) return;
+
+      const fileName = this.editFileName.trim();
+      const measurementName = this.editMeasurementName.trim();
+      if (!fileName || !measurementName) {
+        this.editErrorMessage = 'ファイル名とmeasurement nameを入力してください。';
+        return;
+      }
+
+      this.savingEdit = true;
+      try {
+        const updated = await updateMeasurementMetadata(
+          this.editingMeasurement.id,
+          fileName,
+          measurementName
+        );
+        Object.assign(this.editingMeasurement, updated);
+        this.editingMeasurement = null;
+        this.editErrorMessage = '';
+        this.errorMessage = '';
+        this.renderChart();
+      } catch (error) {
+        console.error(error);
+        this.editErrorMessage = translateError(error);
+      } finally {
+        this.savingEdit = false;
+      }
     },
     remove(measurement) {
       this.pendingDelete = measurement;

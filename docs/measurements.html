@@ -102,6 +102,39 @@
           </label>
         </template>
       </div>
+      <div class="flex justify-end mt-3">
+        <button
+          type="button"
+          @click="downloadAllLetterSummaryJpeg"
+          :disabled="downloadingSummaryJpeg || loading"
+          class="px-3 py-1.5 rounded bg-blue-600 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          x-text="downloadingSummaryJpeg ? 'JPG生成中...' : 'A–G表をJPGダウンロード'"
+        ></button>
+      </div>
+      <div x-show="letterFilters.length > 0" x-cloak class="mt-3 pt-3 border-t overflow-x-auto">
+        <p class="text-[10px] text-gray-500 mb-2">帯域平均（125–4000 Hz）</p>
+        <table class="w-full text-xs text-left">
+          <thead>
+            <tr class="border-b text-gray-500">
+              <th class="py-1.5 pr-3 font-medium">name</th>
+              <th class="py-1.5 px-3 font-medium text-right">M</th>
+              <th class="py-1.5 pl-3 font-medium text-right">B</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="row in letterSummaryRows()" :key="row.name">
+              <tr class="border-b last:border-b-0">
+                <td class="py-1.5 pr-3 font-medium whitespace-nowrap" x-text="row.name"></td>
+                <td class="py-1.5 px-3 text-right whitespace-nowrap" x-text="formatLetterSummaryAverage(row.M)"></td>
+                <td class="py-1.5 pl-3 text-right whitespace-nowrap" x-text="formatLetterSummaryAverage(row.B)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <p x-show="letterSummaryRows().length === 0" class="text-xs text-gray-400 py-2">
+          _M / _B に該当する測定データがありません。
+        </p>
+      </div>
     </div>
 
     <div class="flex items-center gap-2">
@@ -130,7 +163,7 @@
     </div>
     <p x-show="showSearchHelp" class="text-[10px] text-gray-500 -mt-2">
       スペース区切り=AND（例: A B）／ <code>|</code> 区切り=OR（例: A|B）／
-      <code>"..."</code> で囲むとスペースを含む1語として扱う（例: "WS A" BU）
+      <code>"..."</code> で囲むとスペースを含む1語として扱う（例: "A Main" BU）
     </p>
 
     <div class="bg-white rounded-lg shadow p-4 space-y-2">
@@ -189,6 +222,12 @@
               <div class="text-xs text-gray-500 truncate" x-text="measurement.measurement_name"></div>
             </div>
           </div>
+          <button
+            type="button"
+            x-show="canEdit"
+            @click="startEdit(measurement)"
+            class="text-blue-600 text-xs shrink-0"
+          >編集</button>
           <button type="button" :disabled="!canDelete" @click="remove(measurement)" class="text-red-600 text-xs shrink-0 disabled:opacity-20 disabled:cursor-not-allowed">削除</button>
         </div>
       </template>
@@ -206,6 +245,39 @@
       aria-label="グラフへ戻る"
       class="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center text-xl leading-none"
     >↑</button>
+
+    <div x-show="editingMeasurement" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-10">
+      <form class="bg-white rounded-lg shadow-lg p-4 w-full max-w-sm space-y-3" @submit.prevent="saveEdit" @click.outside="cancelEdit">
+        <h2 class="font-bold">測定情報を編集</h2>
+        <div>
+          <label for="edit-file-name" class="block text-xs font-medium mb-1">ファイル名</label>
+          <input
+            id="edit-file-name"
+            type="text"
+            x-model="editFileName"
+            :disabled="savingEdit"
+            required
+            class="w-full border rounded px-3 py-2 text-sm disabled:opacity-50"
+          >
+        </div>
+        <div>
+          <label for="edit-measurement-name" class="block text-xs font-medium mb-1">measurement name</label>
+          <input
+            id="edit-measurement-name"
+            type="text"
+            x-model="editMeasurementName"
+            :disabled="savingEdit"
+            required
+            class="w-full border rounded px-3 py-2 text-sm disabled:opacity-50"
+          >
+        </div>
+        <p x-show="editErrorMessage" x-text="editErrorMessage" class="text-sm text-red-600"></p>
+        <div class="flex justify-end gap-2 text-sm">
+          <button type="button" @click="cancelEdit" :disabled="savingEdit" class="px-3 py-1.5 rounded border text-gray-600 disabled:opacity-50">キャンセル</button>
+          <button type="submit" :disabled="savingEdit" class="px-3 py-1.5 rounded bg-blue-600 text-white disabled:opacity-50" x-text="savingEdit ? '保存中...' : '保存'"></button>
+        </div>
+      </form>
+    </div>
 
     <div x-show="pendingDelete" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-10">
       <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-xs space-y-3" @click.outside="cancelRemove">

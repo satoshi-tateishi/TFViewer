@@ -13,7 +13,7 @@ export function translateError(error) {
   }
 
   if (/duplicate key value violates unique constraint/i.test(message)) {
-    return '同じファイル名の測定が同時に更新されました。画面を更新してもう一度お試しください。';
+    return '同じファイル名の測定がすでに存在します。別のファイル名を入力してください。';
   }
 
   if (/exceeded the maximum allowed size|payload too large/i.test(message)) {
