@@ -291,7 +291,7 @@ export function measurementList() {
         }));
         const canvas = document.createElement('canvas');
         const padding = 60;
-        const nameWidth = 650;
+        const nameWidth = 550;
         const valueWidth = 215 * 1.5;
         const tableWidth = nameWidth + valueWidth * 2;
         const width = tableWidth + padding * 2;
