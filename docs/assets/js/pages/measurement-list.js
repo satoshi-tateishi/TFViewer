@@ -85,6 +85,22 @@ function fitCanvasText(context, text, maxWidth) {
   return `${fitted}…`;
 }
 
+// middle基準で上下4pxの余白を残し、実際の文字が収まる最大サイズを選ぶ。
+// 名前は省略表示するため高さだけ、数値は列幅も制約にする。
+function fitCanvasFont(context, texts, rowHeight, bold = false, maxWidth = Infinity) {
+  const halfHeight = rowHeight / 2 - 4;
+  for (let size = rowHeight; size > 0; size -= 1) {
+    context.font = `${bold ? 'bold ' : ''}${size}px sans-serif`;
+    if (texts.every((text) => {
+      const metrics = context.measureText(text);
+      return metrics.actualBoundingBoxAscent <= halfHeight
+        && metrics.actualBoundingBoxDescent <= halfHeight
+        && metrics.width <= maxWidth;
+    })) return context.font;
+  }
+  return context.font;
+}
+
 // 検索・絞り込みの比較対象。ファイル名は拡張子を除き、測定名と連結して小文字化する。
 function searchHaystack(measurement) {
   return `${stripExtension(measurement.file_name)} ${measurement.measurement_name}`.toLowerCase();
@@ -303,12 +319,20 @@ export function measurementList() {
         const tableWidth = width - padding * 2;
         const nameWidth = 650;
         const valueWidth = (tableWidth - nameWidth) / 2;
+        const allRows = sections.flatMap((section) => section.rows);
+        const headerFont = fitCanvasFont(context, ['name', 'M', 'B'], tableHeaderHeight, true);
+        const sectionFont = fitCanvasFont(context, this.letters, sectionHeight, true);
+        const nameFont = fitCanvasFont(context, ['該当データなし', '…', ...allRows.map((row) => row.name)], rowHeight);
+        const valueFont = fitCanvasFont(context, ['—', ...allRows.flatMap((row) => [
+          this.formatLetterSummaryAverage(row.M),
+          this.formatLetterSummaryAverage(row.B)
+        ])], rowHeight, false, valueWidth - 40);
         let y = padding + titleHeight;
 
         context.fillStyle = '#1f2937';
         context.fillRect(padding, y, tableWidth, tableHeaderHeight);
         context.fillStyle = '#ffffff';
-        context.font = 'bold 22px sans-serif';
+        context.font = headerFont;
         context.textAlign = 'left';
         context.fillText('name', padding + 20, y + tableHeaderHeight / 2);
         context.textAlign = 'right';
@@ -320,7 +344,7 @@ export function measurementList() {
           context.fillStyle = '#dbeafe';
           context.fillRect(padding, y, tableWidth, sectionHeight);
           context.fillStyle = '#1e3a8a';
-          context.font = 'bold 22px sans-serif';
+          context.font = sectionFont;
           context.textAlign = 'left';
           context.fillText(section.letter, padding + 20, y + sectionHeight / 2);
           y += sectionHeight;
@@ -338,13 +362,14 @@ export function measurementList() {
             context.stroke();
 
             context.fillStyle = row.empty ? '#9ca3af' : '#111827';
-            context.font = '21px sans-serif';
+            context.font = nameFont;
             context.textAlign = 'left';
             context.fillText(
               fitCanvasText(context, row.name, nameWidth - 40),
               padding + 20,
               y + rowHeight / 2
             );
+            context.font = valueFont;
             context.textAlign = 'right';
             context.fillText(
               row.empty ? '—' : this.formatLetterSummaryAverage(row.M),
