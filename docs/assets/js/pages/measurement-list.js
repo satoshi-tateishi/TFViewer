@@ -290,8 +290,11 @@ export function measurementList() {
           rows: this.letterSummaryRowsFor([letter])
         }));
         const canvas = document.createElement('canvas');
-        const width = 1200;
         const padding = 60;
+        const nameWidth = 650;
+        const valueWidth = 215 * 1.5;
+        const tableWidth = nameWidth + valueWidth * 2;
+        const width = tableWidth + padding * 2;
         const titleHeight = 110;
         const tableHeaderHeight = 58;
         const sectionHeight = 48;
@@ -316,9 +319,6 @@ export function measurementList() {
         context.font = '22px sans-serif';
         context.fillText('125–4000 Hz', padding, padding + 72);
 
-        const tableWidth = width - padding * 2;
-        const nameWidth = 650;
-        const valueWidth = (tableWidth - nameWidth) / 2;
         const allRows = sections.flatMap((section) => section.rows);
         const headerFont = fitCanvasFont(context, ['name', 'M', 'B'], tableHeaderHeight, true);
         const sectionFont = fitCanvasFont(context, this.letters, sectionHeight, true);
